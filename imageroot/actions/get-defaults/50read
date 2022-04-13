@@ -36,6 +36,7 @@ if 'domain' in request and len(request['domain']) > 0:
 else:
     fqdn = socket.gethostname().lower()
     if '.' in fqdn:
+        # strip first domain segment
         response['domain'] = fqdn[fqdn.find('.')+1:]
     else:
         response['domain'] = 'nethserver.test'

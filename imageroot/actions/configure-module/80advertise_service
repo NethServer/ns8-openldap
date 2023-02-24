@@ -57,6 +57,8 @@ data={
     "tls_verify": "off",
     "bind_dn": bind_dn,
     "bind_password": bind_password,
+    "hidden_users": "",
+    "hidden_groups": "locals",
 }
 
 # Add the account provider discovery information, and advertise this new

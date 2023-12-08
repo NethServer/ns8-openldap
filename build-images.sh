@@ -11,7 +11,7 @@ repobase="${REPOBASE:-ghcr.io/nethserver}"
 reponame="openldap"
 
 # Base OS for the service image
-alpine_version=3.18.5
+alpine_version=3.19.0
 
 # Create a new empty container image
 container=$(buildah from scratch)

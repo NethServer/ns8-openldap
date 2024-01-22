@@ -34,7 +34,7 @@ pwdMinAge: 0
 pwdMaxAge: 15552000
 pwdMinLength: 8
 pwdInHistory: 12
-pwdLockout: FALSE
+pwdLockout: TRUE
 pwdUseCheckModule: TRUE
 pwdCheckModuleArg: default
 pwdExpireWarning: 0

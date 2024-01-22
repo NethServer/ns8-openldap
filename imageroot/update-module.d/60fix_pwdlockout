@@ -1,0 +1,17 @@
+#!/bin/bash
+
+#
+# Copyright (C) 2023 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+#
+# Fix for bug 6823
+# See https://github.com/NethServer/ns8-openldap/pull/33
+#
+podman exec -i openldap ash -c 'envsubst | ldapmodify -c' <<'EOF'
+dn: cn=default,ou=PPolicy,${LDAP_SUFFIX}
+changetype: modify
+replace: pwdLockout
+pwdLockout: TRUE
+EOF

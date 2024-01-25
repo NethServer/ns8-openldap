@@ -27,11 +27,14 @@ with agent.redis_connect(use_replica=True) as rdb:
                 modules_set.add(key.rstrip('0123456789'))
 
 # Translate the image identifiers in module_set into human readable strings
-response = agent.tasks.run(agent_id='cluster', action='list-modules', data=None)
 names_set=set()
-for item in response['output']:
-    if item.get('id') in modules_set:
-        names_set.add(item.get('name'))
+try:
+    response = agent.tasks.run(agent_id='cluster', action='list-modules', data=None)
+    for item in response['output']:
+        if item.get('id') in modules_set:
+            names_set.add(item.get('name'))
+except Exception as ex:
+    print(agent.SD_WARNING + "Failed to run cluster/list-modules action:", ex, file=sys.stderr)
 
 # Write modules set to a JSON file
 data = {"domain": ldap_domain, "services": list(names_set)}

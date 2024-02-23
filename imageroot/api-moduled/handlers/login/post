@@ -38,10 +38,10 @@ oclaims = {
 if proc_whoami.returncode == 49 and "Password expired" in proc_whoami.stderr:
     # Password must be changed immediately: return a token limited to
     # password changing:
-    oclaims["scope"] = ["change-password"]
+    oclaims["scope"] = ["change-password", "get-password-policy"]
 elif proc_whoami.returncode != 0:
     sys.exit(3) # Login failed
 elif "domain admins" not in oclaims["groups"]:
-    oclaims["scope"] = ["change-password"]
+    oclaims["scope"] = ["change-password", "get-password-policy"]
 
 json.dump(oclaims, fp=sys.stdout)

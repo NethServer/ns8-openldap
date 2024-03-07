@@ -60,10 +60,8 @@ if provision_type == 'join-domain':
             endpoints.append(f"ldap://{provider['host']}:{provider['port']}")
     podman_cmd.append("join-domain")
     podman_cmd.append(','.join(endpoints))
-    # Set the bind password for the provider
-    if domains[domain]["bind_password"]:
-        agent.set_env('LDAP_SVCPASS', domains[domain]["bind_password"])
-        agent.set_env('LDAP_SVCUSER', 'ldapservice')
+    agent.set_env('LDAP_SVCPASS', domains[domain]["bind_password"])
+    agent.set_env('LDAP_SVCUSER', 'ldapservice')
 
 elif provision_type == 'new-domain':
     podman_cmd.append("new-domain")

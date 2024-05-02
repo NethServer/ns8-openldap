@@ -15,7 +15,7 @@ ldap_suffix = os.environ["LDAP_SUFFIX"]
 
 # PASSWORD POLICY
 ldapsearch_proc = subprocess.run(["podman", "exec", "openldap",
-                                  "ldapsearch", "-LLL", "-b", f"cn=default,ou=PPolicy,{ldap_suffix}", "-s", "base"
+                                  "ldapsearch", "-LLLo", "ldif-wrap=no", "-b", f"cn=default,ou=PPolicy,{ldap_suffix}", "-s", "base"
                                   ], text=True, capture_output=True, check=True)
 
 ppolicy = {

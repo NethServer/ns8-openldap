@@ -50,7 +50,7 @@ fi
     printf 'changetype: delete\n'
 
     # Delete user group membership attributes
-    ldapsearch -Q -LLL "(memberUid=${user})" dn | awk -v "user=${user}" -e '
+    ldapsearch -Q -LLL -o ldif-wrap=no "(memberUid=${user})" dn | awk -v "user=${user}" -e '
     /^dn: / {
         print ""
         print $0

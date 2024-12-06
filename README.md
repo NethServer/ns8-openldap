@@ -120,7 +120,7 @@ payload structure.
 
 ## Migration notes
 
-- On the NS7 side a Python filter `ns8fixschema.py` converts the LDIF dump
+- On the NS7 side a Python filter `ns8fixschema.py3` converts the LDIF dump
   to a NS8 compatible schema. The script `utils/genschema.py` was used to
   export NS8 schema data in Python format.
 - The password policy feature does not exist in NS7. When the NS7 LDAP

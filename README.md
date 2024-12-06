@@ -120,7 +120,9 @@ payload structure.
 
 ## Migration notes
 
-- The NS7 domain is migrated as `directory.nh`
+- On the NS7 side a Python filter `ns8fixschema.py` converts the LDIF dump
+  to a NS8 compatible schema. The script `utils/genschema.py` was used to
+  export NS8 schema data in Python format.
 - The password policy feature does not exist in NS7. When the NS7 LDAP
   account provider is migrated to NS8 the password policy is set in a
   disabled state and can be enabled later from the Domains and Users page

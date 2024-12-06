@@ -50,7 +50,7 @@ slapadd -v -w -S "${LDAP_SERVERID}" -n 0 -F conf.d < <(envsubst <"${TEMPLATES_DI
 
 if [ -f dump-mdb0.ldif ]; then
     echo "Restoring ${LDAP_SUFFIX} database for ${LDAP_DOMAIN}"
-    slapadd -v -F conf.d -b "${LDAP_SUFFIX}" -l dump-mdb0.ldif
+    slapadd -v -c -F conf.d -b "${LDAP_SUFFIX}" -l dump-mdb0.ldif
 else
     echo "Creating ${LDAP_SUFFIX} database for ${LDAP_DOMAIN}"
     slapadd -v -w -S "${LDAP_SERVERID}" -b "${LDAP_SUFFIX}" -F conf.d < <(envsubst <"${TEMPLATES_DIR}/mdb0.ldif" | tee dump-mdb0.ldif)

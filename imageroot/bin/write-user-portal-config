@@ -29,7 +29,7 @@ with agent.redis_connect(use_replica=True) as rdb:
 # Translate the image identifiers in module_set into human readable strings
 names_set=set()
 try:
-    response = agent.tasks.run(agent_id='cluster', action='list-modules', data=None)
+    response = agent.tasks.run(agent_id='cluster', action='list-modules', data=None, extra={'isNotificationHidden': True})
     for item in response['output']:
         if item.get('id') in modules_set:
             names_set.add(item.get('name'))

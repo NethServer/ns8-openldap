@@ -34,6 +34,7 @@ usage_error()
     printf "      -p password           Initial password; \"-\" reads from standard input\n"
     printf "      -G numgid             Set the primary group number\n"
     printf "      -U numuid             Set the numeric user identifier\n"
+    printf "      -m mail               Set the user email address\n"
     exit 2
 }
 
@@ -41,13 +42,14 @@ ngid=1001
 maxid=$(ldapsearch -b "ou=People,${LDAP_SUFFIX}" "(uid=*)" uidNumber | awk  '$0 ~ /^uidNumber:/ {print $2}' | sort -n | tail -n 1)
 nuid=$(( maxid + 1 ))
 
-while getopts "g:d:p:G:U:h" optname ; do
+while getopts "g:d:p:m:G:U:h" optname ; do
     case ${optname} in
         g)  gflag=1 ; groups="${OPTARG}" ;;
         G)  ngid="${OPTARG}" ;;
         U)  nuid="${OPTARG}" ;;
         d)  dflag=1 ; display_name="${OPTARG}" ;;
         p)  pflag=1 ; password="${OPTARG}" ;;
+        m)  mflag=1 ; mail="${OPTARG}" ;;
         h)  usage_error ;;
         *)  usage_error ;;
     esac
@@ -91,6 +93,11 @@ fi
     else
         printf 'cn: %s\n' "${user}"
         printf 'sn: %s\n' "${user}"
+    fi
+
+    # Add mail attribute
+    if [ -n "${mail}" ]; then
+        printf 'mail: %s\n' "${mail}"
     fi
 
     # Add group membership attributes to existing groups

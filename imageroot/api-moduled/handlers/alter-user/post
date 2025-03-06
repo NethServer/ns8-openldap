@@ -30,6 +30,9 @@ if 'locked' in request:
     else:
         alteruser_cmd += ['-u']
 
+if 'mail' in request:
+    alteruser_cmd += ['-m', request['mail']]
+
 alteruser_cmd.append(user)
 
 alter_user_result = subprocess.run(alteruser_cmd, input=request.get('password'), capture_output=True, text=True)

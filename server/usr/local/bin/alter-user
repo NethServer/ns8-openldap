@@ -34,14 +34,16 @@ usage_error()
     printf "      -p password           Initial password; \"-\" reads from standard input\n"
     printf "      -l                    Lock the user\n"
     printf "      -u                    Unlock the user\n"
+    printf "      -m mail               Set the user email address\n"
     exit 2
 }
 
-while getopts "g:d:p:hlu" optname ; do
+while getopts "g:d:p:m:hlu" optname ; do
     case ${optname} in
         g)  gflag=1 ; groups="${OPTARG}" ;;
         d)  dflag=1 ; display_name="${OPTARG}" ;;
         p)  pflag=1 ; password="${OPTARG}" ;;
+        m)  mflag=1 ; mail="${OPTARG}" ;;
         l)  lflag=1 ;;
         u)  uflag=1 ;;
         h)  usage_error ;;
@@ -139,6 +141,15 @@ fi
         printf 'dn: uid=%s,ou=People,%s\n' "${user}" "${LDAP_SUFFIX:?}"
         printf 'changetype: modify\n'
         printf 'delete: pwdAccountLockedTime\n'
+    fi
+
+    # Change mail attribute
+    if [ -n "${mail}" ]; then
+        printf '\n' # do not conflict with previous ldap commands
+        printf 'dn: uid=%s,ou=People,%s\n' "${user}" "${LDAP_SUFFIX:?}"
+        printf 'changetype: modify\n'
+        printf 'replace: mail\n'
+        printf 'mail: %s\n' "${mail}"
     fi
 
 ) | ldapmodify -Q

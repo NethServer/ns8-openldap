@@ -30,6 +30,7 @@ groups = request.get('groups', [])
 password = request.get('password', '')
 display_name = request.get('display_name', '')
 locked = request.get('locked', False)
+mail = request.get('mail', '')
 
 # execute add user
 adduser_cmd = ['podman', 'exec', '-i', 'openldap', 'add-user']
@@ -45,6 +46,9 @@ else:
 
 if display_name:
     adduser_cmd += ['-d', display_name]
+
+if mail:
+    adduser_cmd += ['-m', mail]
 
 adduser_cmd.append(user)
 

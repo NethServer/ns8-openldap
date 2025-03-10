@@ -126,15 +126,6 @@ fi
         }'
     fi
 
-    # Change mail attribute
-    if [ -n "${mail}" ]; then
-        printf '\n' # do not conflict with previous ldap commands
-        printf 'dn: uid=%s,ou=People,%s\n' "${user}" "${LDAP_SUFFIX:?}"
-        printf 'changetype: modify\n'
-        printf 'replace: mail\n'
-        printf 'mail: %s\n' "${mail}"
-    fi
-
 ) | ldapmodify -Q
 
 if [ $? != 0 ]; then
@@ -142,7 +133,7 @@ if [ $? != 0 ]; then
     echo "[ERROR] Alter user ${user} failed" 1>&2
 fi
 
-# Execute lock/unlock operations in a separate ldapmodify command because
+# Execute some operations in a separate ldapmodify command because
 # they can fail without preventing other operations to succeed
 (
     # Lock user
@@ -160,6 +151,20 @@ fi
         printf 'dn: uid=%s,ou=People,%s\n' "${user}" "${LDAP_SUFFIX:?}"
         printf 'changetype: modify\n'
         printf 'delete: pwdAccountLockedTime\n'
+    fi
+
+    # Change mail attribute
+    if [ -n "${mail}" ]; then
+        printf '\n' # do not conflict with previous ldap commands
+        printf 'dn: uid=%s,ou=People,%s\n' "${user}" "${LDAP_SUFFIX:?}"
+        printf 'changetype: modify\n'
+        printf 'replace: mail\n'
+        printf 'mail: %s\n' "${mail}"
+    else
+        printf '\n' # do not conflict with previous ldap commands
+        printf 'dn: uid=%s,ou=People,%s\n' "${user}" "${LDAP_SUFFIX:?}"
+        printf 'changetype: modify\n'
+        printf 'delete: mail\n'
     fi
 
 ) | ldapmodify -Q -c

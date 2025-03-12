@@ -5,7 +5,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 
-import agent
 import json
 import sys
 import subprocess
@@ -32,8 +31,6 @@ if 'locked' in request:
 
 if 'mail' in request:
     alteruser_cmd += ['-m', request['mail']]
-else:
-    alteruser_cmd += ['-m', '']
 
 alteruser_cmd.append(user)
 

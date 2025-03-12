@@ -154,17 +154,19 @@ fi
     fi
 
     # Change mail attribute
-    if [ -n "${mail}" ]; then
-        printf '\n' # do not conflict with previous ldap commands
-        printf 'dn: uid=%s,ou=People,%s\n' "${user}" "${LDAP_SUFFIX:?}"
-        printf 'changetype: modify\n'
-        printf 'replace: mail\n'
-        printf 'mail: %s\n' "${mail}"
-    else
-        printf '\n' # do not conflict with previous ldap commands
-        printf 'dn: uid=%s,ou=People,%s\n' "${user}" "${LDAP_SUFFIX:?}"
-        printf 'changetype: modify\n'
-        printf 'delete: mail\n'
+    if [ "${mflag}" = 1 ]; then
+        if [ -z "${mail}" ]; then
+            printf '\n' # do not conflict with previous ldap commands
+            printf 'dn: uid=%s,ou=People,%s\n' "${user}" "${LDAP_SUFFIX:?}"
+            printf 'changetype: modify\n'
+            printf 'delete: mail\n'
+        else
+            printf '\n' # do not conflict with previous ldap commands
+            printf 'dn: uid=%s,ou=People,%s\n' "${user}" "${LDAP_SUFFIX:?}"
+            printf 'changetype: modify\n'
+            printf 'replace: mail\n'
+            printf 'mail: %s\n' "${mail}"
+        fi
     fi
 
 ) | ldapmodify -Q -c

@@ -9,7 +9,7 @@
             "user": "alice",
             "display_name": "Alice Jordan",
             "password": "secret",
-            "locked": "false",
+            "locked": false,
             "groups": [
                 "developers","managers"
             ],
@@ -56,7 +56,16 @@
         "mail": {
             "title": "Email address",
             "type": "string",
-            "format": "email"
+            "oneOf": [
+                {
+                    "type": "string",
+                    "format": "email"
+                },
+                {
+                    "type": "string",
+                    "maxLength": 0
+                }
+            ]
         }
     },
     "$defs": {}

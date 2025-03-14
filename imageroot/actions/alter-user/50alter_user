@@ -20,7 +20,6 @@
 # along with NethServer.  If not, see COPYING.
 #
 
-import agent
 import json
 import sys
 import subprocess
@@ -44,6 +43,9 @@ if 'locked' in request:
         alteruser_cmd += ['-l']
     else:
         alteruser_cmd += ['-u']
+
+if 'mail' in request:
+    alteruser_cmd += ['-m', request['mail']]
 
 alteruser_cmd.append(user)
 

@@ -21,8 +21,10 @@ odomain = Ldapproxy().get_domain(os.environ["LDAP_DOMAIN"])
 oldapcli = Ldapclient.factory(**odomain)
 
 try:
-    user_dn = oldapcli.get_user_entry(request['username'])["dn"]
-    ouser = oldapcli.get_user(request['username'])
+    duser = oldapcli.get_user_entry(request['username'])
+    user_dn = duser["dn"]
+    # get the user with uid insensitive search, answer is an array 'attributes': {'uid': ['username']}
+    ouser = oldapcli.get_user(duser['attributes']['uid'][0])
 except agent.ldapclient.exceptions.LdapclientEntryNotFound:
     sys.exit(2) # User not found
 

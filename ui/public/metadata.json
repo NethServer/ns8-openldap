@@ -12,7 +12,7 @@
     }
   ],
   "docs": {
-    "documentation_url": "https://docs.openldap.com/",
+    "documentation_url": "https://docs.nethserver.org/projects/ns8/en/latest/user_domains.html#ldap-server-rfc2307",
     "bug_url": "https://github.com/NethServer/dev",
     "code_url": "https://github.com/author/ns8-openldap"
   },

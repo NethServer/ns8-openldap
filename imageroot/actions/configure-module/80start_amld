@@ -44,6 +44,7 @@ response = agent.tasks.run(
         'path': '/users-admin/' + os.environ['LDAP_DOMAIN'],
         'http2https': True,
         'strip_prefix': True,
+        'slash_redirect': True,
     },
 )
 

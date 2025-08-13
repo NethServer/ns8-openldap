@@ -31,7 +31,7 @@ cn: default
 pwdAttribute: userPassword
 pwdCheckQuality: 2
 pwdMinAge: 0
-pwdMaxAge: 15552000
+pwdMaxAge: 0
 pwdMinLength: 8
 pwdInHistory: 12
 pwdLockout: TRUE

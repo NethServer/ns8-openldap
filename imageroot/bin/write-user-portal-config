@@ -37,7 +37,7 @@ except Exception as ex:
     print(agent.SD_WARNING + "Failed to run cluster/list-modules action:", ex, file=sys.stderr)
 
 # Write modules set to a JSON file
-data = {"domain": ldap_domain, "services": list(names_set)}
+data = {"domain": ldap_domain, "services": list(names_set), "schema":"rfc2307"}
 
 with open(f'{agent_install_dir}/api-moduled/public/config.json', 'w') as file:
     json.dump(data, file)

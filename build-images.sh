@@ -33,7 +33,7 @@ fi
 buildah add "${container}" imageroot /imageroot
 
 # Copy ui of ns8-user-manager
-user_manager_version=v1.2.1
+user_manager_version=v1.2.2
 curl -f -L -O https://github.com/NethServer/ns8-user-manager/releases/download/${user_manager_version}/ns8-user-manager-${user_manager_version}.tar.gz
 buildah add "${container}" ns8-user-manager-${user_manager_version}.tar.gz /imageroot/api-moduled/public/
 

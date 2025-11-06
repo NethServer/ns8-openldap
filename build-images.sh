@@ -10,9 +10,6 @@ repobase="${REPOBASE:-ghcr.io/nethserver}"
 # Configure the image name
 reponame="openldap"
 
-# Base OS for the service image
-alpine_version=3.21.3
-
 # Create a new empty container image
 container=$(buildah from scratch)
 
@@ -53,7 +50,7 @@ images+=("${repobase}/${reponame}")
 
 # Server image from Alpine OpenLDAP
 reponame="openldap-server"
-container=$(buildah from docker.io/library/alpine:${alpine_version})
+container=$(buildah from docker.io/library/alpine:3.21.3)
 buildah run "${container}" sh <<'EOF'
 apk add --no-cache \
     gettext \

@@ -1,0 +1,27 @@
+#!/usr/bin/env python3
+
+#
+# Copyright (C) 2025 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+# Define domadm actions, including import/export users, for RFC2307 schema
+
+import os
+import agent
+
+rdb = agent.redis_connect(privileged=True)
+
+domadm_actions = [
+    "add-user",
+    "add-group",
+    "alter-user",
+    "alter-group",
+    "remove-user",
+    "remove-group",
+    "export-users",
+    "import-users",
+    "list-users",
+    "list-groups",
+]
+rdb.sadd(os.environ["AGENT_ID"] + '/roles/domadm', *domadm_actions)

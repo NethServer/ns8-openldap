@@ -21,11 +21,7 @@ For import_users(records, skip_existing, progfunc):
 import subprocess
 import os
 import sys
-import json
-import string
-import secrets
 import base64
-import agent
 
 
 LDAP_DOMAIN = os.environ['LDAP_DOMAIN']
@@ -79,16 +75,21 @@ class CaseInsensitiveDict(dict):
     def __contains__(self, key):
         return super().__contains__(key.lower())
 
-def import_users(records: list, skip_existing: bool, progfunc: callable) -> bool:
+def import_users(records: list, skip_existing: bool, progfunc) -> bool:
     errors = 0
     total = len(records) or 1
     done = 0
     adb = _get_accounts()
-    def _create_missing_groups(groups):
-        # Create missing groups:
+    new_groups = set()
+    def _create_missing_groups(groups, user):
+        # Create missing groups on the fly:
         for g in groups:
-            if g not in adb:
-                subprocess.run(['podman', 'exec', 'openldap', 'add-group', g], stdout=sys.stderr, text=True)
+            if g not in adb and g.lower() not in new_groups:
+                try:
+                    subprocess.run(['podman', 'exec', 'openldap', 'add-group', g], stdout=sys.stderr, text=True, check=True)
+                    new_groups.add(g.lower())
+                except subprocess.CalledProcessError:
+                    errors += 1
     for rec in records:
         user = rec['user']
         groups = rec.get('groups', [])
@@ -97,8 +98,9 @@ def import_users(records: list, skip_existing: bool, progfunc: callable) -> bool
         mail = rec.get('mail')
         if user in adb:
             if skip_existing:
+                done += 1
                 continue
-            _create_missing_groups(groups)
+            _create_missing_groups(groups, user)
             # build alter-user command for merging attributes
             alt_cmd = ['podman', 'exec', '-i', 'openldap', 'alter-user']
             if 'password' in rec:
@@ -117,7 +119,7 @@ def import_users(records: list, skip_existing: bool, progfunc: callable) -> bool
             except subprocess.CalledProcessError:
                 errors += 1
         else:
-            _create_missing_groups(groups)
+            _create_missing_groups(groups, user)
             # Add a new user
             add_cmd = ['podman', 'exec', '-i', 'openldap', 'add-user']
             if groups:
@@ -138,7 +140,7 @@ def import_users(records: list, skip_existing: bool, progfunc: callable) -> bool
                 if rec.get('locked') is not None:
                     desired_locked = bool(rec.get('locked'))
                     lock_cmd = ['podman', 'exec', '-i', 'openldap', 'alter-user', '-l' if desired_locked else '-u', user]
-                    subprocess.run(lock_cmd, stdout=sys.stderr, text=True)
+                    subprocess.run(lock_cmd, stdout=sys.stderr, text=True, check=True)
             except subprocess.CalledProcessError:
                 errors += 1
         done += 1
@@ -147,10 +149,10 @@ def import_users(records: list, skip_existing: bool, progfunc: callable) -> bool
     return errors == 0
 
 def _get_accounts() -> dict:
-    """Returns users and groups. Each dict value is a tuple of 9 elements.
+    """Returns users and groups. Each dict value is a list of 9 elements.
     """
-    def v(l):
-        a, v = l.split(": ", 1)
+    def v(line):
+        a, v = line.split(": ", 1)
         if a.endswith(":"):
             try:
                 return base64.b64decode(v).decode("utf-8", errors="ignore")

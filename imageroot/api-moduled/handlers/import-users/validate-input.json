@@ -1,0 +1,124 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "import-users input",
+    "$id": "http://schema.nethserver.org/ns8-openldap/api-moduled/handlers/import-users/validate-input.json",
+    "description": "Import users and groups definitions in OpenLDAP, with optional attribute merge behavior.",
+    "examples": [
+        [
+            {
+                "skip_existing": true,
+                "records": [
+                    {
+                        "user": "alice",
+                        "display_name": "Alice Jordan",
+                        "password": "secret",
+                        "locked": false,
+                        "groups": [
+                            "developers"
+                        ],
+                        "mail": "alice@nethserver.org",
+                        "must_change_password": false,
+                        "no_password_expiration": false
+                    },
+                    {
+                        "user": "bob",
+                        "display_name": "Robert Smith",
+                        "password": "secret",
+                        "locked": false,
+                        "groups": [
+                            "support"
+                        ],
+                        "mail": "robert@nethserver.org",
+                        "must_change_password": false,
+                        "no_password_expiration": false
+                    }
+                ]
+            }
+        ]
+    ],
+    "required": [
+        "records"
+    ],
+    "type": "object",
+    "properties": {
+        "skip_existing": {
+            "type": "boolean",
+            "default": false
+        },
+        "records": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/record"
+            }
+        }
+    },
+    "$defs": {
+        "record": {
+            "type": "object",
+            "required": [
+                "user"
+            ],
+            "properties": {
+                "user": {
+                    "title": "User identifier",
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 255,
+                    "pattern": "^[a-zA-Z][-._a-zA-Z0-9]*$"
+                },
+                "display_name": {
+                    "title": "Display name, if missing User identifier is applied with Title Case",
+                    "type": "string",
+                    "maxLength": 256
+                },
+                "password": {
+                    "title": "Initial password",
+                    "description": "If missing, a random password is set",
+                    "type": "string",
+                    "maxLength": 256
+                },
+                "locked": {
+                    "type": "boolean",
+                    "default": false,
+                    "title": "Locked",
+                    "description": "If true, the account is locked, preventing logins"
+                },
+                "groups": {
+                    "title": "Initial group membership",
+                    "description": "List of initial groups. Non existing groups are created on the fly.",
+                    "type": "array",
+                    "uniqueItems": true,
+                    "minItems": 0,
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                },
+                "mail": {
+                    "title": "Email address",
+                    "type": "string",
+                    "oneOf": [
+                        {
+                            "type": "string",
+                            "format": "email"
+                        },
+                        {
+                            "type": "string",
+                            "maxLength": 0
+                        }
+                    ]
+                },
+                "must_change_password": {
+                    "title": "Must change password",
+                    "type": "boolean",
+                    "description": "If true, the user must change their password at next login"
+                },
+                "no_password_expiration": {
+                    "title": "No password expiration",
+                    "type": "boolean",
+                    "description": "If true, the user's password will not expire"
+                }
+            }
+        }
+    }
+}

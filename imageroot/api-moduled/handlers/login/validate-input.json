@@ -13,6 +13,11 @@
         },
         "password": {
             "type": "string"
+        },
+        "auth_backend": {
+            "type": "string",
+            "enum": ["ldap", "api-server"],
+            "default": "ldap"
         }
     }
 }

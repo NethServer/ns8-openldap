@@ -22,3 +22,9 @@ Configure the domain
 The server is reachable after restart
     Execute Command    systemctl stop user@$(id -u ${MID1}) ; systemctl start user@$(id -u ${MID1})
     Wait Until Keyword Succeeds    10s    1s    RootDSE is correct    ${SURL}
+
+Prepare scenario ${SCENARIO}
+    IF    r'${SCENARIO}' == 'update'
+        ${out}  ${rc} =  Execute Command  api-cli run update-module --data '{"force":true,"module_url":"${IMAGE_URL}","instances":["${MID1}"]}'  return_rc=${True}
+        Should Be Equal As Integers  ${rc}  0  action update-module ${IMAGE_URL} failed
+    END

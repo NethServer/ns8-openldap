@@ -32,13 +32,14 @@ usage_error()
     printf "      -g group1,group2,...  Set the user as member of the comma-separated list of groups\n"
     printf "      -d display_name          Set the user display name\n"
     printf "      -p password           Initial password; \"-\" reads from standard input\n"
+    printf "      -e                    Ignore password change errors\n"
     printf "      -l                    Lock the user\n"
     printf "      -u                    Unlock the user\n"
     printf "      -m mail               Set the user email address\n"
     exit 2
 }
 
-while getopts "g:d:p:m:hlu" optname ; do
+while getopts "g:d:p:m:hlue" optname ; do
     case ${optname} in
         g)  gflag=1 ; groups="${OPTARG}" ;;
         d)  dflag=1 ; display_name="${OPTARG}" ;;
@@ -46,6 +47,7 @@ while getopts "g:d:p:m:hlu" optname ; do
         m)  mflag=1 ; mail="${OPTARG}" ;;
         l)  lflag=1 ;;
         u)  uflag=1 ;;
+        e)  eflag=1 ;;
         h)  usage_error ;;
         *)  usage_error ;;
     esac
@@ -64,10 +66,10 @@ if [ "${pflag}" = 1 ]; then
         read -r password # Read password from stdin
         echo
     elif [ "${password}" = '' ]; then
-        password=$(dd if=/dev/urandom of=/dev/stdout bs=32 count=1 | base64 -w 0)
+        password=$(dd if=/dev/urandom of=/dev/stdout bs=32 count=1 2>/dev/null | base64 -w 0)
     fi
     echo -n "${password}" | ldappasswd -Q -T /dev/stdin "uid=${user},ou=People,${LDAP_SUFFIX:?}"
-    if [ $? != 0 ]; then
+    if [ $? != 0 ] && [ "x${eflag}" = "x" ]; then
         errors=$((errors + 1))
         echo "[ERROR] Password change failed for ${user}" 1>&2
     fi

@@ -1,0 +1,99 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "export-users output",
+    "$id": "http://schema.nethserver.org/ns8-openldap/api-moduled/handlers/export-users/validate-output.json",
+    "type": "object",
+    "examples": [
+        [
+            {
+                "status": "success",
+                "message": "users_exported",
+                "records": [
+                    {
+                        "user": "alice",
+                        "display_name": "Alice Jordan",
+                        "locked": false,
+                        "groups": [
+                            "developers"
+                        ],
+                        "mail": "alice@nethserver.org",
+                        "must_change_password": false,
+                        "no_password_expiration": false
+                    },
+                    {
+                        "user": "bob",
+                        "display_name": "Robert Smith",
+                        "locked": false,
+                        "groups": [
+                            "support"
+                        ],
+                        "mail": "robert@nethserver.org",
+                        "must_change_password": false,
+                        "no_password_expiration": false
+                    }
+                ]
+            }
+        ]
+    ],
+    "required": [
+        "status",
+        "message"
+    ],
+    "properties": {
+        "status": {
+            "enum": [
+                "success",
+                "failure"
+            ]
+        },
+        "message": {
+            "type": "string"
+        },
+        "records": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/record"
+            }
+        }
+    },
+    "$defs": {
+        "record": {
+            "type": "object",
+            "required": [
+                "user"
+            ],
+            "properties": {
+                "user": {
+                    "type": "string"
+                },
+                "display_name": {
+                    "type": "string"
+                },
+                "locked": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "If true, the account is locked, preventing logins"
+                },
+                "groups": {
+                    "description": "List of groups",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "mail": {
+                    "title": "Email address",
+                    "type": "string"
+                },
+                "must_change_password": {
+                    "type": "boolean",
+                    "description": "If true, the user must change their password at next login"
+                },
+                "no_password_expiration": {
+                    "type": "boolean",
+                    "description": "If true, the user's password will not expire"
+                }
+            }
+        }
+    }
+}

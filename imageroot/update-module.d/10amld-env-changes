@@ -1,0 +1,22 @@
+#!/usr/bin/env python3
+
+#
+# Copyright (C) 2025 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+# This script updates the api-moduled.env file contents
+
+import sys
+import agent
+
+denv = agent.read_envfile("api-moduled.env")
+orig_exports = denv.get("AMLD_EXPORT_ENV", "").split()
+exports = orig_exports.copy()
+for var in ["PYTHONPATH", "MODULE_ID"]:
+    if var not in exports:
+        exports.append(var)
+if orig_exports != exports:
+    denv["AMLD_EXPORT_ENV"] = ' '.join(exports)
+    agent.write_envfile("api-moduled.env", denv)
+    print("AMLD_EXPORT_ENV updated", file=sys.stderr)

@@ -10,40 +10,100 @@ import sys
 import os
 import agent
 import subprocess
+import requests
 
 from agent.ldapproxy import Ldapproxy
 from agent.ldapclient import Ldapclient
 
-request = json.load(sys.stdin)
 
-odomain = Ldapproxy().get_domain(os.environ["LDAP_DOMAIN"])
+def api_server_login(request):
+    """Grant an equivalent of domadm role access on api-moduled handlers,
+    if provided cluster-admin credentials are authorized to run
+    import-users action."""
+    auth = (request["username"], request["password"])  # http-basic
+    module_id = os.environ["MODULE_ID"]
+    try:
+        response = requests.get(
+            f'http://cluster-leader:9311/api/module/{module_id}/http-basic/import-users',
+            auth=auth,
+            timeout=10,
+        )
+        if response.status_code == 200:
+            # Check the response format sanity
+            if "X-Auth-User" not in response.headers:
+                raise Exception("Malformed header from upstream server")
+            jresponse = response.json()
+            if jresponse.get("code") != 200:
+                raise Exception("Unexpected payload from upstream server")
+        else:
+            # Check if response is a JSON object with a message attribute:
+            response.json()["message"]
+            response.raise_for_status()
+    except requests.RequestException as e:
+        print(f"login: network error: {e}", file=sys.stderr)
+        sys.exit(2)
+    except (KeyError, ValueError, json.JSONDecodeError) as e:
+        print(f"login: unexpected cluster-admin response: {e}", file=sys.stderr)
+        sys.exit(2)
+    except Exception as e:
+        print(f"login: failed response check: {e}", file=sys.stderr)
+        sys.exit(2)
+    return {
+        "auth_backend": "api-server",
+        "uid": request["username"],
+        "groups": [],
+        "scope": [
+            "add-user",
+            "add-group",
+            "alter-user",
+            "alter-group",
+            "remove-user",
+            "remove-group",
+            "export-users",
+            "import-users",
+            "list-users",
+            "list-groups",
+        ],
+    }
 
-oldapcli = Ldapclient.factory(**odomain)
 
-try:
-    duser = oldapcli.get_user_entry(request['username'])
-    user_dn = duser["dn"]
-    # get the user with uid insensitive search, answer is an array 'attributes': {'uid': ['username']}
-    ouser = oldapcli.get_user(duser['attributes']['uid'][0])
-except agent.ldapclient.exceptions.LdapclientEntryNotFound:
-    sys.exit(2) # User not found
+def ldap_login(request):
+    odomain = Ldapproxy().get_domain(os.environ["LDAP_DOMAIN"])
+    oldapcli = Ldapclient.factory(**odomain)
+    try:
+        duser = oldapcli.get_user_entry(request['username'])
+        user_dn = duser["dn"]
+        ouser = oldapcli.get_user(duser['attributes']['uid'][0])
+    except agent.ldapclient.exceptions.LdapclientEntryNotFound:
+        sys.exit(2)  # User not found
+    proc_whoami = subprocess.run([
+        "podman", "exec", "-i", "openldap",
+        "ldapwhoami", "-x", "-e", "ppolicy", "-D", user_dn, "-y", "/dev/stdin"
+    ], input=request["password"], text=True, capture_output=True)
+    oclaims = {
+        "uid": ouser["user"],
+        "groups": list(ogroup["group"] for ogroup in ouser["groups"]),
+    }
+    if proc_whoami.returncode == 49 and "Password expired" in proc_whoami.stderr:
+        oclaims["scope"] = ["change-password", "get-password-policy"]
+    elif proc_whoami.returncode != 0:
+        sys.exit(3)  # Login failed
+    elif "domain admins" not in oclaims["groups"]:
+        oclaims["scope"] = ["change-password", "get-password-policy"]
+    return oclaims
 
-proc_whoami = subprocess.run(["podman", "exec", "-i", "openldap",
-    "ldapwhoami", "-x", "-e", "ppolicy", "-D", user_dn, "-y", "/dev/stdin"],
-    input=request["password"], text=True, capture_output=True)
 
-oclaims = {
-    "uid": ouser["user"],
-    "groups": list(ogroup["group"] for ogroup in ouser["groups"])
-}
+def main():
+    request = json.load(sys.stdin)
+    auth_backend = request.get("auth_backend", "ldap")
+    if auth_backend == "api-server":
+        oclaims = api_server_login(request)
+    elif auth_backend == "ldap":
+        oclaims = ldap_login(request)
+    else:
+        sys.exit(2)
+    json.dump(oclaims, fp=sys.stdout)
 
-if proc_whoami.returncode == 49 and "Password expired" in proc_whoami.stderr:
-    # Password must be changed immediately: return a token limited to
-    # password changing:
-    oclaims["scope"] = ["change-password", "get-password-policy"]
-elif proc_whoami.returncode != 0:
-    sys.exit(3) # Login failed
-elif "domain admins" not in oclaims["groups"]:
-    oclaims["scope"] = ["change-password", "get-password-policy"]
 
-json.dump(oclaims, fp=sys.stdout)
+if __name__ == "__main__":
+    main()

@@ -1,2 +1,5 @@
 admuser = 'admin'
 admpass = '****'
+SCENARIO = 'install'
+cadmuser = 'admin'
+cadmpass = 'Nethesis,1234'

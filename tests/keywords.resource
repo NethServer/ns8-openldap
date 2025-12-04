@@ -14,9 +14,14 @@ ${SURL}         ldap://
 
 *** Keywords ***
 Create a module instance
-    ${output}  ${rc} =    Execute Command    add-module ${IMAGE_URL} 1    return_rc=True
+    IF    r'${SCENARIO}' == 'update'
+        ${output}  ${rc} =  Execute Command  add-module openldap 1    return_rc=True
+    ELSE
+        ${output}  ${rc} =  Execute Command  add-module ${IMAGE_URL} 1    return_rc=True
+    END
     Should Be Equal As Integers    ${rc}  0
     &{output} =    Evaluate    ${output}
+    Log To Console  ${output.image_url}
     RETURN  ${output.module_id}
 
 Remove a module instance

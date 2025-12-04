@@ -21,7 +21,7 @@ Create a module instance
     END
     Should Be Equal As Integers    ${rc}  0
     &{output} =    Evaluate    ${output}
-    Log To Console  ${output.image_url}
+    Log  Installed ${output.image_url}  console=${True}
     RETURN  ${output.module_id}
 
 Remove a module instance

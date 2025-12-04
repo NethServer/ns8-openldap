@@ -25,7 +25,7 @@ The server is reachable after restart
 
 Prepare scenario ${SCENARIO}
     IF    r'${SCENARIO}' == 'update'
-        Log To Console  Update to ${IMAGE_URL}
+        Log  Update to ${IMAGE_URL}  console=${True}
         ${out}  ${rc} =  Execute Command  api-cli run update-module --data '{"force":true,"module_url":"${IMAGE_URL}","instances":["${MID1}"]}'  return_rc=${True}
         Should Be Equal As Integers  ${rc}  0  action update-module ${IMAGE_URL} failed
     END

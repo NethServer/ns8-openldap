@@ -60,20 +60,18 @@
             ],
             "properties": {
                 "user": {
-                    "title": "User identifier",
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 255,
                     "pattern": "^[a-zA-Z][-._a-zA-Z0-9]*$"
                 },
                 "display_name": {
-                    "title": "Display name, if missing User identifier is applied with Title Case",
+                    "description": "Display name, if missing User identifier is applied with Title Case",
                     "type": "string",
                     "maxLength": 256
                 },
                 "password": {
-                    "title": "Initial password",
-                    "description": "If missing, a random password is set",
+                    "description": "If missing, a random password is set for a new user",
                     "type": "string",
                     "maxLength": 256
                 },
@@ -84,7 +82,6 @@
                     "description": "If true, the account is locked, preventing logins"
                 },
                 "groups": {
-                    "title": "Initial group membership",
                     "description": "List of initial groups. Non existing groups are created on the fly.",
                     "type": "array",
                     "uniqueItems": true,
@@ -95,7 +92,6 @@
                     }
                 },
                 "mail": {
-                    "title": "Email address",
                     "type": "string",
                     "oneOf": [
                         {
@@ -109,13 +105,13 @@
                     ]
                 },
                 "must_change_password": {
-                    "title": "Must change password",
                     "type": "boolean",
+                    "default": false,
                     "description": "If true, the user must change their password at next login"
                 },
                 "no_password_expiration": {
-                    "title": "No password expiration",
                     "type": "boolean",
+                    "default": false,
                     "description": "If true, the user's password will not expire"
                 }
             }

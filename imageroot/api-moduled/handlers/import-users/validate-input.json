@@ -96,7 +96,15 @@
                     "oneOf": [
                         {
                             "type": "string",
-                            "format": "email"
+                            "description": "Legacy RFC822 address format",
+                            "allOf": [
+                                {
+                                    "pattern": "^[\\x00-\\x7F]{1,256}$"
+                                },
+                                {
+                                    "format": "email"
+                                }
+                            ]
                         },
                         {
                             "type": "string",

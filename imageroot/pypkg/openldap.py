@@ -172,6 +172,7 @@ def _get_accounts() -> dict:
     with subprocess.Popen([
             'podman', 'exec', 'openldap', 'ldapsearch',
             '-b', LDAP_SUFFIX,
+            '-o', 'ldif-wrap=no',
             '(|(objectClass=posixAccount)(objectClass=posixGroup))',
             'uid',
             'cn',

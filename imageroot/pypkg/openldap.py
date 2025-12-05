@@ -51,7 +51,7 @@ def export_users() -> list:
             'must_change_password': False,
             'no_password_expiration': False,
         }
-        if u[ACDISPLAY] is not None:
+        if u[ACDISPLAY]:
             rec["display_name"] = u[ACDISPLAY]
         if u[ACMAIL]:
             rec["mail"] = u[ACMAIL]
@@ -110,8 +110,10 @@ def import_users(records: list, skip_existing: bool, progfunc) -> bool:
                 alt_cmd += ['-e', '-p', '-'] # ignore password-change errors
             if 'groups' in rec:
                 alt_cmd += ['-g', ','.join(groups)]
-            if 'display_name' in rec:
-                alt_cmd += ['-d', display_name]
+            if display_name == "" and adb[user][ACDISPLAY]:
+                alt_cmd += ['-d', ''] # delete displayName attribute
+            elif display_name:
+                alt_cmd += ['-d', display_name] # replace value
             if 'locked' in rec and rec['locked'] != bool(adb[user][ACUAC]):
                 alt_cmd += ['-l'] if rec['locked'] else ['-u']
             if mail == "" and adb[user][ACMAIL]:

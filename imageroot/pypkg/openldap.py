@@ -93,7 +93,7 @@ def import_users(records: list, skip_existing: bool, progfunc) -> bool:
     for rec in records:
         user = rec['user']
         groups = rec.get('groups', [])
-        password = rec.get('password')
+        password = rec.get('password') or None
         display_name = rec.get('display_name')
         mail = rec.get('mail')
         if user in adb:
@@ -103,9 +103,9 @@ def import_users(records: list, skip_existing: bool, progfunc) -> bool:
             _create_missing_groups(groups, user)
             # build alter-user command for merging attributes
             alt_cmd = ['podman', 'exec', '-i', 'openldap', 'alter-user']
-            if 'password' in rec:
+            if password:
                 alt_cmd += ['-e', '-p', '-'] # ignore password-change errors
-            if 'groups' in rec and groups:
+            if 'groups' in rec:
                 alt_cmd += ['-g', ','.join(groups)]
             if 'display_name' in rec and display_name:
                 alt_cmd += ['-d', display_name]
@@ -127,8 +127,7 @@ def import_users(records: list, skip_existing: bool, progfunc) -> bool:
             if password:
                 add_cmd += ['-p', '-']
             else:
-                add_cmd += ['-p', '']
-                password = None
+                add_cmd += ['-p', ''] # generate a random password, like Samba
             if display_name:
                 add_cmd += ['-d', display_name]
             if mail:

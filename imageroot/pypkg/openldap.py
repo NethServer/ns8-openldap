@@ -45,15 +45,18 @@ def export_users() -> list:
     for u in adb.values():
         if u[ACTYPE] != 'U':
             continue
-        out.append({
+        rec = {
             'user': u[ACID],
-            'display_name': u[ACDISPLAY] or "",
             'locked': bool(u[ACUAC]),
-            'groups': u[ACGROUPS],
-            'mail': u[ACMAIL] or "",
             'must_change_password': False,
             'no_password_expiration': False,
-        })
+        }
+        if u[ACDISPLAY]:
+            rec["display_name"] = u[ACDISPLAY]
+        if u[ACMAIL]:
+            rec["mail"] = u[ACMAIL]
+        rec["groups"] = sorted(u[ACGROUPS])
+        out.append(rec)
     return out
 
 class CaseInsensitiveDict(dict):
@@ -107,12 +110,16 @@ def import_users(records: list, skip_existing: bool, progfunc) -> bool:
                 alt_cmd += ['-e', '-p', '-'] # ignore password-change errors
             if 'groups' in rec:
                 alt_cmd += ['-g', ','.join(groups)]
-            if 'display_name' in rec and display_name:
-                alt_cmd += ['-d', display_name]
-            if 'locked' in rec:
+            if display_name == "" and adb[user][ACDISPLAY]:
+                alt_cmd += ['-d', ''] # delete displayName attribute
+            elif display_name:
+                alt_cmd += ['-d', display_name] # replace value
+            if 'locked' in rec and rec['locked'] != bool(adb[user][ACUAC]):
                 alt_cmd += ['-l'] if rec['locked'] else ['-u']
-            if 'mail' in rec and mail:
-                alt_cmd += ['-m', mail]
+            if mail == "" and adb[user][ACMAIL]:
+                alt_cmd += ['-m', ''] # delete mail attribute
+            elif mail:
+                alt_cmd += ['-m', mail] # replace value
             alt_cmd.append(user)
             try:
                 subprocess.run(alt_cmd, input=password, stdout=sys.stderr, check=True, text=True)
@@ -130,6 +137,8 @@ def import_users(records: list, skip_existing: bool, progfunc) -> bool:
                 add_cmd += ['-p', ''] # generate a random password, like Samba
             if display_name:
                 add_cmd += ['-d', display_name]
+            else:
+                add_cmd += ['-d', user.title()]
             if mail:
                 add_cmd += ['-m', mail]
             add_cmd.append(user)

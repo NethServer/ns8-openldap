@@ -14,7 +14,7 @@ on:
 jobs:
   module:
     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event.workflow_run.conclusion == '' }}
-    uses: NethServer/ns8-github-actions/.github/workflows/module-info.yml@main
+    uses: NethServer/ns8-github-actions/.github/workflows/module-info.yml@v1
 
   chooser:
     runs-on: ubuntu-latest

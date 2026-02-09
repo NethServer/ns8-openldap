@@ -19,7 +19,11 @@ if ! buildah containers --format "{{.ContainerName}}" | grep -q nodebuilder-open
     buildah from --name nodebuilder-openldap -v "${PWD}:/usr/src:z" docker.io/library/node:24-slim
 fi
 echo "Build static UI files with node..."
-buildah run nodebuilder-openldap sh -c "cd /usr/src/ui && yarn install && yarn build"
+buildah run \
+    --workingdir=/usr/src/ui \
+    --env="NODE_OPTIONS=--openssl-legacy-provider" \
+    nodebuilder-openldap \
+    sh -c "yarn install && yarn build"
 
 buildah add "${container}" imageroot /imageroot
 

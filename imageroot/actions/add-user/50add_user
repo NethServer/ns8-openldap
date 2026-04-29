@@ -50,6 +50,9 @@ if display_name:
 if mail:
     adduser_cmd += ['-m', mail]
 
+if no_password_expiration:
+    adduser_cmd += ['-n']
+
 adduser_cmd.append(user)
 
 subprocess.run(adduser_cmd, input=password, stdout=sys.stderr, check=True, text=True)
@@ -57,7 +60,3 @@ subprocess.run(adduser_cmd, input=password, stdout=sys.stderr, check=True, text=
 if locked:
     lock_cmd = ['podman', 'exec', '-i', 'openldap', 'alter-user', '-l', user]
     subprocess.run(lock_cmd, stdout=sys.stderr, check=True, text=True)
-
-if no_password_expiration:
-    npe_cmd = ['podman', 'exec', 'openldap', 'alter-user', '-n', user]
-    subprocess.run(npe_cmd, stdout=sys.stderr, check=True, text=True)

@@ -31,6 +31,7 @@ password = request.get('password', '') # Empty string implies a random password 
 display_name = request.get('display_name', '')
 locked = request.get('locked', False)
 mail = request.get('mail', '')
+no_password_expiration = request.get('no_password_expiration', False)
 
 adduser_cmd = ['podman', 'exec', '-i', 'openldap', 'add-user']
 
@@ -56,3 +57,7 @@ subprocess.run(adduser_cmd, input=password, stdout=sys.stderr, check=True, text=
 if locked:
     lock_cmd = ['podman', 'exec', '-i', 'openldap', 'alter-user', '-l', user]
     subprocess.run(lock_cmd, stdout=sys.stderr, check=True, text=True)
+
+if no_password_expiration:
+    npe_cmd = ['podman', 'exec', 'openldap', 'alter-user', '-n', user]
+    subprocess.run(npe_cmd, stdout=sys.stderr, check=True, text=True)

@@ -119,4 +119,11 @@ if [ "${pflag}" = 1 ]; then
     exit_code=$((exit_code + $?))
 fi
 
+if [ "${nflag}" = 1 ]; then
+    # Password never expires: remove pwdChangedTime set by ldappasswd above
+    printf 'dn: uid=%s,ou=People,%s\nchangetype: modify\ndelete: pwdChangedTime\n' \
+        "${user}" "${LDAP_SUFFIX:?}" | ldapmodify -Q -e relax -c
+    exit_code=$((exit_code + $?))
+fi
+
 exit "${exit_code}"

@@ -35,6 +35,7 @@ usage_error()
     printf "      -G numgid             Set the primary group number\n"
     printf "      -U numuid             Set the numeric user identifier\n"
     printf "      -m mail               Set the user email address\n"
+    printf "      -n                    Password never expires\n"
     exit 2
 }
 
@@ -42,7 +43,7 @@ ngid=1001
 maxid=$(ldapsearch -b "ou=People,${LDAP_SUFFIX}" "(uid=*)" uidNumber | awk  '$0 ~ /^uidNumber:/ {print $2}' | sort -n | tail -n 1)
 nuid=$(( maxid + 1 ))
 
-while getopts "g:d:p:m:G:U:h" optname ; do
+while getopts "g:d:p:m:G:U:nh" optname ; do
     case ${optname} in
         g)  gflag=1 ; groups="${OPTARG}" ;;
         G)  ngid="${OPTARG}" ;;
@@ -50,6 +51,7 @@ while getopts "g:d:p:m:G:U:h" optname ; do
         d)  dflag=1 ; display_name="${OPTARG}" ;;
         p)  pflag=1 ; password="${OPTARG}" ;;
         m)  mflag=1 ; mail="${OPTARG}" ;;
+        n)  nflag=1 ;;
         h)  usage_error ;;
         *)  usage_error ;;
     esac
@@ -116,6 +118,13 @@ exit_code=$?
 
 if [ "${pflag}" = 1 ]; then
     echo -n "${password}" | ldappasswd -Q -T /dev/stdin "uid=${user},ou=People,${LDAP_SUFFIX:?}"
+    exit_code=$((exit_code + $?))
+fi
+
+if [ "${nflag}" = 1 ]; then
+    # Password never expires: remove pwdChangedTime set by ldappasswd above
+    printf 'dn: uid=%s,ou=People,%s\nchangetype: modify\ndelete: pwdChangedTime\n' \
+        "${user}" "${LDAP_SUFFIX:?}" | ldapmodify -Q -e relax -c
     exit_code=$((exit_code + $?))
 fi
 

@@ -47,6 +47,12 @@ if 'locked' in request:
 if 'mail' in request:
     alteruser_cmd += ['-m', request['mail']]
 
+if 'no_password_expiration' in request:
+    if request['no_password_expiration'] == True:
+        alteruser_cmd += ['-n']
+    else:
+        alteruser_cmd += ['-r']
+
 alteruser_cmd.append(user)
 
 subprocess.run(alteruser_cmd, input=request.get('password'), stdout=sys.stderr, check=True, text=True)

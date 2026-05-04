@@ -41,7 +41,7 @@ usage_error()
     exit 2
 }
 
-while getopts "g:d:p:m:hluehnr" optname ; do
+while getopts "g:d:p:m:hluenr" optname ; do
     case ${optname} in
         g)  gflag=1 ; groups="${OPTARG}" ;;
         d)  dflag=1 ; display_name="${OPTARG}" ;;

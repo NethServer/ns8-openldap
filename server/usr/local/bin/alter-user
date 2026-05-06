@@ -188,7 +188,7 @@ fi
         # Restore password expiration: set pwdChangedTime to current UTC time
         printf 'dn: uid=%s,ou=People,%s\n' "${user}" "${LDAP_SUFFIX:?}"
         printf 'changetype: modify\n'
-        printf 'replace: pwdChangedTime\n'
+        printf 'add: pwdChangedTime\n'
         printf 'pwdChangedTime: %s\n' "$(date -u +%Y%m%d%H%M%SZ)"
     fi
 ) | ldapmodify -Q -e relax -c

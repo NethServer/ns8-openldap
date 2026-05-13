@@ -36,10 +36,12 @@ usage_error()
     printf "      -l                    Lock the user\n"
     printf "      -u                    Unlock the user\n"
     printf "      -m mail               Set the user email address\n"
+    printf "      -n                    Password never expires (removes pwdChangedTime)\n"
+    printf "      -r                    Restore password expiration (sets pwdChangedTime to now)\n"
     exit 2
 }
 
-while getopts "g:d:p:m:hlue" optname ; do
+while getopts "g:d:p:m:hluenr" optname ; do
     case ${optname} in
         g)  gflag=1 ; groups="${OPTARG}" ;;
         d)  dflag=1 ; display_name="${OPTARG}" ;;
@@ -48,6 +50,8 @@ while getopts "g:d:p:m:hlue" optname ; do
         l)  lflag=1 ;;
         u)  uflag=1 ;;
         e)  eflag=1 ;;
+        n)  nflag=1 ;;
+        r)  rflag=1 ;;
         h)  usage_error ;;
         *)  usage_error ;;
     esac
@@ -172,6 +176,22 @@ fi
     fi
 
 ) | ldapmodify -Q -c
+
+# Handle pwdChangedTime with "relax" LDAP control (operational attribute)
+(
+    if [ "${nflag}" = 1 ]; then
+        # Password never expires: remove pwdChangedTime
+        printf 'dn: uid=%s,ou=People,%s\n' "${user}" "${LDAP_SUFFIX:?}"
+        printf 'changetype: modify\n'
+        printf 'delete: pwdChangedTime\n'
+    elif [ "${rflag}" = 1 ]; then
+        # Restore password expiration: set pwdChangedTime to current UTC time
+        printf 'dn: uid=%s,ou=People,%s\n' "${user}" "${LDAP_SUFFIX:?}"
+        printf 'changetype: modify\n'
+        printf 'add: pwdChangedTime\n'
+        printf 'pwdChangedTime: %s\n' "$(date -u +%Y%m%d%H%M%SZ)"
+    fi
+) | ldapmodify -Q -e relax -c
 
 if [ "${errors}" != 0 ]; then
     exit 1

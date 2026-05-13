@@ -53,6 +53,11 @@
                 "minLength": 1
             }
         },
+        "no_password_expiration": {
+            "type": "boolean",
+            "title": "No password expiration",
+            "description": "True, if the user password never expires"
+        },
         "mail": {
             "title": "Email address",
             "type": "string",

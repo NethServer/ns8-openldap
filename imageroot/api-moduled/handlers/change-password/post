@@ -28,6 +28,14 @@ except agent.ldapclient.exceptions.LdapclientEntryNotFound:
 
 oldapcli.ldapconn.unbind() # close LDAP connection FD
 
+# "Password never expires" means pwdChangedTime is absent. ldappasswd
+# makes the ppolicy overlay recreate it, so remember the state here to
+# restore the flag after a successful change.
+proc_pwdtime = subprocess.run(["podman", "exec", "-i", "openldap",
+    "ldapsearch", "-LLL", "-Q", "-b", ouser["dn"], "-s", "base", "pwdChangedTime"],
+    text=True, capture_output=True)
+password_never_expires = "pwdChangedTime:" not in proc_pwdtime.stdout
+
 # First attempt: try to change the password with simple bind, using the
 # user's credentials
 proc_lpasswd = subprocess.run(["podman", "exec", "-i", "openldap",
@@ -49,6 +57,15 @@ if proc_lpasswd.returncode == 49 and "Password expired" in proc_lpasswd.stderr:
 print(proc_lpasswd.stdout, file=sys.stderr)
 
 if proc_lpasswd.returncode == 0:
+    if password_never_expires:
+        # Re-delete the pwdChangedTime the overlay recreated (relax
+        # control), keeping the never-expires flag. Mirrors alter-user.
+        ldif = f"dn: {ouser['dn']}\nchangetype: modify\ndelete: pwdChangedTime\n"
+        proc_relax = subprocess.run(["podman", "exec", "-i", "openldap",
+            "ldapmodify", "-Q", "-e", "relax", "-c"],
+            input=ldif, text=True, capture_output=True)
+        if proc_relax.returncode != 0:
+            print(agent.SD_WARNING + f"Failed to preserve password-never-expires flag for {os.environ['JWT_ID']}: " + proc_relax.stdout + proc_relax.stderr, file=sys.stderr)
     json.dump({"status": "success", "message": "password_changed"}, fp=sys.stdout)
 else:
     # Combined output

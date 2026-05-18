@@ -64,6 +64,18 @@ fi
 
 errors=0
 
+# ldappasswd makes the ppolicy overlay recreate pwdChangedTime. If the
+# user had "password never expires" (no pwdChangedTime) and the caller
+# did not ask to set/restore expiration, keep the flag: the nflag block
+# below will re-delete pwdChangedTime after the password change.
+if [ "${pflag}" = 1 ] && [ "${nflag}" != 1 ] && [ "${rflag}" != 1 ]; then
+    pwd_changed_time=$(ldapsearch -LLL -Q "(uid=${user})" pwdChangedTime 2>/dev/null \
+        | grep -i '^pwdChangedTime:')
+    if [ -z "${pwd_changed_time}" ]; then
+        nflag=1
+    fi
+fi
+
 if [ "${pflag}" = 1 ]; then
     if [ "${password}" = '-' ]; then
         echo -n "Enter password: "

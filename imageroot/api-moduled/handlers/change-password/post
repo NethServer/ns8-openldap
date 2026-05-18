@@ -34,7 +34,14 @@ oldapcli.ldapconn.unbind() # close LDAP connection FD
 proc_pwdtime = subprocess.run(["podman", "exec", "-i", "openldap",
     "ldapsearch", "-LLL", "-Q", "-b", ouser["dn"], "-s", "base", "pwdChangedTime"],
     text=True, capture_output=True)
-password_never_expires = "pwdChangedTime:" not in proc_pwdtime.stdout
+# Only trust the result if the search succeeded: a failed ldapsearch
+# produces no stdout and must not be read as "flag set", which would
+# wrongly delete pwdChangedTime later and disable expiration.
+if proc_pwdtime.returncode != 0:
+    print(agent.SD_WARNING + "Cannot read pwdChangedTime, skipping never-expires preservation: " + proc_pwdtime.stderr, file=sys.stderr)
+    password_never_expires = False
+else:
+    password_never_expires = "pwdChangedTime:" not in proc_pwdtime.stdout
 
 # First attempt: try to change the password with simple bind, using the
 # user's credentials
@@ -65,7 +72,7 @@ if proc_lpasswd.returncode == 0:
             "ldapmodify", "-Q", "-e", "relax", "-c"],
             input=ldif, text=True, capture_output=True)
         if proc_relax.returncode != 0:
-            print(agent.SD_WARNING + f"Failed to preserve password-never-expires flag for {os.environ['JWT_ID']}: " + proc_relax.stdout + proc_relax.stderr, file=sys.stderr)
+            print(agent.SD_WARNING + "Failed to preserve password-never-expires flag: " + proc_relax.stdout + proc_relax.stderr, file=sys.stderr)
     json.dump({"status": "success", "message": "password_changed"}, fp=sys.stdout)
 else:
     # Combined output

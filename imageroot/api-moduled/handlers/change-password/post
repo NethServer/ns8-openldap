@@ -72,7 +72,7 @@ if proc_lpasswd.returncode == 0:
             "ldapmodify", "-Q", "-e", "relax", "-c"],
             input=ldif, text=True, capture_output=True)
         if proc_relax.returncode != 0:
-            print(agent.SD_WARNING + "Failed to preserve password-never-expires flag: " + proc_relax.stdout + proc_relax.stderr, file=sys.stderr)
+            print(agent.SD_ERR + "Failed to preserve password-never-expires flag: " + proc_relax.stdout + proc_relax.stderr, file=sys.stderr)
     json.dump({"status": "success", "message": "password_changed"}, fp=sys.stdout)
 else:
     # Combined output

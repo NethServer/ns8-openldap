@@ -39,6 +39,22 @@ pwdUseCheckModule: TRUE
 pwdCheckModuleArg: default
 pwdExpireWarning: 0
 
+dn: cn=neverexpires,ou=PPolicy,${LDAP_SUFFIX}
+objectClass: namedPolicy
+objectClass: pwdPolicy
+objectClass: pwdPolicyChecker
+cn: neverexpires
+pwdAttribute: userPassword
+pwdCheckQuality: 2
+pwdMinAge: 0
+pwdMaxAge: 0
+pwdMinLength: 8
+pwdInHistory: 12
+pwdLockout: TRUE
+pwdUseCheckModule: TRUE
+pwdCheckModuleArg: default
+pwdExpireWarning: 0
+
 dn: cn=${LDAP_SVCUSER},${LDAP_SUFFIX}
 objectClass: device
 objectClass: simpleSecurityObject
@@ -69,3 +85,4 @@ sn: ${LDAP_ADMUSER}
 objectClass: posixAccount
 objectClass: inetOrgPerson
 homeDirectory: /home/${LDAP_ADMUSER}
+pwdPolicySubentry: cn=neverexpires,ou=PPolicy,${LDAP_SUFFIX}

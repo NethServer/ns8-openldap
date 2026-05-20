@@ -97,6 +97,11 @@ fi
         printf 'sn: %s\n' "${user}"
     fi
 
+    # Add password-never-expires optional policy
+    if [ "${nflag}" = 1 ]; then
+        printf 'pwdPolicySubentry: cn=neverexpires,ou=PPolicy,%s\n' "${LDAP_SUFFIX:?}"
+    fi
+
     # Add mail attribute
     if [ -n "${mail}" ]; then
         printf 'mail: %s\n' "${mail}"
@@ -118,13 +123,6 @@ exit_code=$?
 
 if [ "${pflag}" = 1 ]; then
     echo -n "${password}" | ldappasswd -Q -T /dev/stdin "uid=${user},ou=People,${LDAP_SUFFIX:?}"
-    exit_code=$((exit_code + $?))
-fi
-
-if [ "${nflag}" = 1 ]; then
-    # Password never expires: remove pwdChangedTime set by ldappasswd above
-    printf 'dn: uid=%s,ou=People,%s\nchangetype: modify\ndelete: pwdChangedTime\n' \
-        "${user}" "${LDAP_SUFFIX:?}" | ldapmodify -Q -e relax -c
     exit_code=$((exit_code + $?))
 fi
 

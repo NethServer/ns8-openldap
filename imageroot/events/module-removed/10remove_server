@@ -1,0 +1,45 @@
+#!/usr/bin/env python3
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Handle the module-removed cluster event.
+# When an OpenLDAP replica is removed as part of an offline node removal,
+# the remaining provider nodes must purge the stale olcSyncrepl entry from
+# their local slapd configuration.
+#
+
+import json
+import os
+import sys
+import agent
+
+event = json.load(sys.stdin)
+
+srv_ldap = event.get('srv_ldap')
+ldap_serverid = event.get('ldap_serverid', '')
+
+# Skip if the removed module was not an LDAP provider
+if not srv_ldap or not ldap_serverid:
+    sys.exit(0)
+
+# Skip if the removed module served a different LDAP domain
+removed_domain = srv_ldap.get('domain', '')
+local_domain = os.environ.get('LDAP_DOMAIN', '')
+if not removed_domain or removed_domain != local_domain:
+    sys.exit(0)
+
+# remove-server purges the olcSyncrepl entry for the given server ID from
+# the local slapd configuration. It already guards against removing the
+# local running server itself.
+agent.run_helper(
+    'podman', 'run', '--rm',
+    '--replace', '--name=remove_server_' + ldap_serverid,
+    '--log-driver=none',
+    '--network=host',
+    '--env=LDAP_*',
+    '--volume=data:/var/lib/openldap:Z',
+    os.environ['OPENLDAP_SERVER_IMAGE'],
+    'remove-server', ldap_serverid,
+).check_returncode()

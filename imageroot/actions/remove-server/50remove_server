@@ -1,0 +1,56 @@
+#!/usr/bin/env python3
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Remove stale olcSyncrepl/olcServerID entries for an offline node.
+#
+
+import json
+import os
+import subprocess
+import sys
+import agent
+
+agent_id = os.environ['AGENT_ID']
+domain = os.environ['LDAP_DOMAIN']
+
+request = json.load(sys.stdin)
+servers = request['servers']  # list of {'host': str, 'port': int}
+
+target_urls = {f"ldap://{s['host']}:{s['port']}" for s in servers}
+
+# Find all olcServerID entries in cn=config matching any of the target URLs
+result = subprocess.run(
+    ['podman', 'exec', 'openldap',
+     'ldapsearch', '-Q', '-LLL', '-o', 'ldif_wrap=no',
+     '-b', 'cn=config', '(objectClass=olcGlobal)', 'olcServerID'],
+    capture_output=True, text=True,
+)
+
+serverids = []
+for line in result.stdout.splitlines():
+    parts = line.split()
+    if parts and parts[0] == 'olcServerID:' and len(parts) == 3 and parts[2] in target_urls:
+        serverids.append(parts[1])
+
+if not serverids:
+    print(f"[ERROR] No olcServerID found matching {target_urls}", file=sys.stderr)
+    sys.exit(1)
+
+# Remove all matched serverIDs in a single call so that cn=config is modified
+# only once, avoiding syncrepl race conditions (rc -100 quitting on all peers).
+agent.run_helper(
+    'podman', 'exec', 'openldap',
+    'remove-server', *serverids,
+).check_returncode()
+
+rdb = agent.redis_connect(privileged=True)
+rdb.publish(agent_id + '/event/service-ldap-changed', json.dumps({
+    'domain': domain,
+    'node': int(os.environ['NODE_ID']),
+    'key': agent_id + '/srv/tcp/ldap',
+}))
+
+json.dump({}, sys.stdout)

@@ -23,9 +23,10 @@ Replica appears in service discovery
     Should Contain    ${out}    ${MID2}
 
 Remove server from provider config
-    ${serverid} =    Evaluate    "${MID2}".removeprefix("openldap")
+    ${out} =    Execute Command    runagent redis-exec HGETALL module/${MID2}/srv/tcp/ldap
+    &{srv} =    Evaluate    ${out}
     ${out}    ${err}    ${rc} =    Execute Command
-    ...    api-cli run module/${MID1}/remove-server --data '{"serverid":${serverid}}'
+    ...    api-cli run module/${MID1}/remove-server --data '{"servers":[{"host":"${srv.host}","port":${srv.port}}]}'
     ...    return_rc=True  return_stdout=True  return_stderr=True
     Should Be Equal As Integers    ${rc}  0
 

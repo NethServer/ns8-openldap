@@ -14,10 +14,15 @@ ${SURL}         ldap://
 
 *** Keywords ***
 Create a module instance
+    ${module_id} =    Create a module instance on node    1
+    RETURN    ${module_id}
+
+Create a module instance on node
+    [Arguments]    ${node_id}
     IF    r'${SCENARIO}' == 'update'
-        ${output}  ${rc} =  Execute Command  add-module openldap 1    return_rc=True
+        ${output}  ${rc} =  Execute Command  add-module openldap ${node_id}    return_rc=True
     ELSE
-        ${output}  ${rc} =  Execute Command  add-module ${IMAGE_URL} 1    return_rc=True
+        ${output}  ${rc} =  Execute Command  add-module ${IMAGE_URL} ${node_id}    return_rc=True
     END
     Should Be Equal As Integers    ${rc}  0
     &{output} =    Evaluate    ${output}

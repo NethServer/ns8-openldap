@@ -36,11 +36,14 @@ Provider is still reachable after remove-server
 
 Server ID is removed from slapd config
     ${serverid} =    Evaluate    "${MID2}".removeprefix("openldap")
+    ${srvdata} =    Execute Command    runagent redis-exec HGETALL module/${MID2}/srv/tcp/ldap
+    &{srv} =    Evaluate    ${srvdata}
     ${out}    ${rc} =    Execute Command
     ...    runagent -m ${MID1} podman exec openldap ldapsearch -Q -LLL -o ldif_wrap=no -b cn=config '(|(objectClass=olcDatabaseConfig)(objectClass=olcGlobal))' olcSyncrepl olcServerID
     ...    return_rc=True
     Should Be Equal As Integers    ${rc}  0
     Should Not Contain    ${out}    olcServerID: ${serverid}
+    Should Not Contain    ${out}    provider=ldap://${srv.host}:${srv.port}
 
 *** Keywords ***
 Install replica module

@@ -15,11 +15,12 @@ Join domain as replica
     ${surl} =    Get server url    ${MID2}
     RootDSE is correct    ${surl}
 
-Replica appears in service discovery
+Both servers appear in service discovery
     ${out}    ${rc} =    Execute Command
     ...    api-cli run module/${MID1}/list-service-providers --data '{"service":"ldap","transport":"tcp","filter":{"domain":"${DOMAIN}"}}'
     ...    return_rc=True
     Should Be Equal As Integers    ${rc}  0
+    Should Contain    ${out}    ${MID1}
     Should Contain    ${out}    ${MID2}
 
 Remove server from provider config
@@ -35,15 +36,19 @@ Provider is still reachable after remove-server
     RootDSE is correct    ${surl}
 
 Server ID is removed from slapd config
-    ${serverid} =    Evaluate    "${MID2}".removeprefix("openldap")
-    ${srvdata} =    Execute Command    runagent redis-exec HGETALL module/${MID2}/srv/tcp/ldap
-    &{srv} =    Evaluate    ${srvdata}
+    ${mid1_serverid} =    Evaluate    "${MID1}".removeprefix("openldap")
+    ${mid2_serverid} =    Evaluate    "${MID2}".removeprefix("openldap")
+    ${mid1_srvdata} =    Execute Command    runagent redis-exec HGETALL module/${MID1}/srv/tcp/ldap
+    &{mid1_srv} =    Evaluate    ${mid1_srvdata}
+    ${mid2_srvdata} =    Execute Command    runagent redis-exec HGETALL module/${MID2}/srv/tcp/ldap
+    &{mid2_srv} =    Evaluate    ${mid2_srvdata}
     ${out}    ${rc} =    Execute Command
     ...    runagent -m ${MID1} podman exec openldap ldapsearch -Q -LLL -o ldif_wrap=no -b cn=config '(|(objectClass=olcDatabaseConfig)(objectClass=olcGlobal))' olcSyncrepl olcServerID
     ...    return_rc=True
     Should Be Equal As Integers    ${rc}  0
-    Should Not Contain    ${out}    olcServerID: ${serverid}
-    Should Not Contain    ${out}    provider=ldap://${srv.host}:${srv.port}
+    Should Contain      ${out}    olcServerID: ${mid1_serverid} ldap://${mid1_srv.host}:${mid1_srv.port}
+    Should Not Contain  ${out}    olcServerID: ${mid2_serverid}
+    Should Not Contain  ${out}    provider=ldap://${mid2_srv.host}:${mid2_srv.port}
 
 *** Keywords ***
 Install replica module

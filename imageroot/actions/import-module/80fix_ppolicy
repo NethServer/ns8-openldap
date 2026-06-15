@@ -47,3 +47,20 @@ pwdUseCheckModule: FALSE
 pwdCheckModuleArg: default
 pwdExpireWarning: 0
 EOF
+
+podman exec -i openldap ash -s <<'EOF'
+{
+  ldapsearch -QLLLo ldif_wrap=no "(&(objectClass=inetOrgPerson)(!(pwdChangedTime=*))(!(pwdPolicySubentry=*)))" dn | \
+    awk -v "ldap_suffix=${LDAP_SUFFIX}" '
+    /^dn:/ {
+        print $0
+        print "changetype: modify"
+        print "add: pwdPolicySubentry"
+        print "pwdPolicySubentry: cn=neverexpires,ou=PPolicy," ldap_suffix
+        print "-"
+        print ""
+    }'
+} | ldapmodify -c -Q || :
+EOF
+
+exit 0

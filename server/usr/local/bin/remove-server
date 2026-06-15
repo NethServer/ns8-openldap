@@ -35,20 +35,10 @@ for serverid in "$@"; do
     fi
 done
 
-# Retrieve the current slapd configuration once, then generate LDIF for all
-# target serverIDs and apply them in a single ldapmodify call.  Using one
-# transaction avoids the syncrepl reconnection storm (rc -100 quitting) that
-# would be triggered by separate ldapmodify calls for each serverID.
-tmpconfig=$(mktemp)
+# Update syncrepl configuration on local remote server:
 ldapsearch -Q -LLL -o ldif_wrap=no -b cn=config \
-    '(|(objectClass=olcDatabaseConfig)(objectClass=olcGlobal))' olcSyncrepl olcServerID \
-    > "${tmpconfig}"
-
-{
-    for serverid in "$@"; do
-        awk -v "targetid=${serverid}" -f "${FILTERS_DIR}/update-syncrepl.awk" < "${tmpconfig}"
-    done
-} | tee "remove-server-combined.ldif" | ldapmodify -Q -c
-
-rm -f "${tmpconfig}"
+    '(|(objectClass=olcDatabaseConfig)(objectClass=olcGlobal))' olcSyncrepl olcServerID | \
+    awk -v "targetids=$*" -f "${FILTERS_DIR}/update-syncrepl.awk" | \
+    tee "remove-server-combined.ldif" | \
+    ldapmodify -Q -c
 

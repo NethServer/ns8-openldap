@@ -21,16 +21,24 @@
 #
 
 #
-# Remove server "targetid" from the syncrepl configuration.
+# Remove servers "targetids" from the syncrepl configuration.
 #
 # This awk filter reads the current configuration database and prints an LDIF
-# script that removes server and syncrepl entries for the given "targetid"
+# script that removes server and syncrepl entries for the given "targetids"
+# (space-separated list of server IDs).
 #
+
+BEGIN {
+    n = split(targetids, tarr)
+    for (i = 1; i <= n; i++) targetset[tarr[i]] = 1
+}
 
 /^dn: / {
     lastdn = $2
     # When a new entry is found turn off the skip flag:
     skipentry = 0
+    # Control the op header to delete some values of multi-value attribute:
+    emitdelete = 1
 }
 
 {
@@ -41,32 +49,46 @@
 
 /^olcServerID: / {
     servers_left++
-    if (targetid == $2) {
-        providermatch = " provider=" $3 " "
-        print "dn: cn=config"
-        print "changetype: modify"
-        print "delete: olcServerID"
-        print $0 "\n"
+    if ($2 in targetset) {
+        providermatches[nmatch++] = " provider=" $3 " "
+        if(emitdelete) {
+            print ""
+            print "dn: cn=config"
+            print "changetype: modify"
+            print "delete: olcServerID"
+            emitdelete = 0
+        }
+        print $0
         servers_left--
     }
 }
 
 /^olcSyncrepl: / {
-    if(servers_left < 2) {
+    if (servers_left < 2) {
         # Remove replication attributes
+        print ""
         print "dn: " lastdn
         print "changetype: modify"
         print "replace: olcSyncrepl"
         print "-"
-        print "replace: olcMultiProvider" "\n"
+        print "replace: olcMultiProvider"
         # Turn on the flag to skip remaining lines of the current dn entry:
         skipentry = 1
         next
-    } else if (providermatch && $0 ~ providermatch) {
-        # Expunge syncrepl config for targetid only
-        print "dn: " lastdn
-        print "changetype: modify"
-        print "delete: olcSyncrepl"
-        print $0 "\n"
+    } else {
+        # Expunge syncrepl config for each target server
+        for (i in providermatches) {
+            if (index($0, providermatches[i])) {
+                if(emitdelete) {
+                    print ""
+                    print "dn: " lastdn
+                    print "changetype: modify"
+                    print "delete: olcSyncrepl"
+                    emitdelete = 0
+                }
+                print $0
+                break
+            }
+        }
     }
 }

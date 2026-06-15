@@ -50,6 +50,6 @@ END { print "" }
 # Update syncrepl configuration on remote servers:
 ldapsearch -LLL -o ldif_wrap=no -b cn=config -x -D cn=config -w "${rootpass}" -H "${endpoints}" \
     '(|(objectClass=olcDatabaseConfig)(objectClass=olcGlobal))' olcSyncrepl olcServerID | \
-    awk -v "targetid=${LDAP_SERVERID}" -f "${FILTERS_DIR}/update-syncrepl.awk" | \
+    awk -v "targetids=${LDAP_SERVERID}" -f "${FILTERS_DIR}/update-syncrepl.awk" | \
     tee "leave-domain.ldif" | \
     ldapmodify -c -x -D cn=config -w "${rootpass}" -H "${endpoints}"

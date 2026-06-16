@@ -1,0 +1,1410 @@
+openapi: 3.1.0
+info:
+  title: ns8-openldap api-moduled API
+  version: 1.0.0
+  description: 'OpenAPI description of the HTTP API implemented by `imageroot/api-moduled/handlers/`
+    plus the built-in `api-moduled` authentication endpoints. This specification is
+    derived from the handler scripts, their JSON schemas, and the upstream `api-moduled`
+    request/response contract.
+
+
+    Operation-level failures are not uniform across handlers: some handlers return
+    HTTP 200 with `{ "status": "failure", ... }`, while unhandled helper failures
+    surface as HTTP 500 from `api-moduled`.'
+externalDocs:
+  description: api-moduled upstream documentation
+  url: https://github.com/NethServer/ns8-core/tree/main/core/api-moduled
+servers:
+- url: https://{host}/users-admin/{domain}/api
+  description: Public users-admin endpoint exposed by ns8-openldap
+  variables:
+    host:
+      default: localhost
+    domain:
+      default: domain.test
+- url: http://{host}:9313/api
+  description: Direct local api-moduled listener
+  variables:
+    host:
+      default: localhost
+tags:
+- name: Authentication
+- name: Users
+- name: Groups
+- name: Password policy
+- name: Administration
+- name: Configuration
+paths:
+  /auth:
+    get:
+      tags:
+      - Authentication
+      summary: Validate credentials with HTTP Basic authentication
+      description: Checks credentials by invoking the `login` handler protocol without
+        issuing a JWT.
+      operationId: basicAuth
+      security:
+      - basicAuth: []
+      responses:
+        '200':
+          description: Credentials are valid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BasicAuthSuccessResponse'
+        '401':
+          description: Credentials are invalid or missing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginFailureResponse'
+  /login:
+    post:
+      tags:
+      - Authentication
+      summary: Authenticate and obtain a JWT
+      description: The backing handler accepts LDAP user credentials by default, or
+        cluster-admin credentials when `auth_backend` is set to `api-server`. Non-domain-admin
+        LDAP users receive a restricted token scope that only allows `change-password`
+        and `get-password-policy`.
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Authentication succeeded and a JWT was issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginSuccessResponse'
+        '401':
+          description: Authentication failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginFailureResponse'
+        '500':
+          description: The login handler or JWT middleware failed internally
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalServerError'
+  /logout:
+    post:
+      tags:
+      - Authentication
+      summary: Invalidate the current login session
+      description: JWT authentication is required. The default `api-moduled` logout
+        response only includes a `code` field.
+      operationId: logout
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Logout succeeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogoutResponse'
+        '401':
+          description: Missing, invalid, or expired JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedError'
+  /add-group:
+    post:
+      tags:
+      - Groups
+      - Administration
+      summary: Create a group
+      operationId: addGroup
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddGroupRequest'
+      responses:
+        '200':
+          description: The group was created, or the handler returned a structured
+            duplicate-group failure
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - $ref: '#/components/schemas/AddGroupSuccessResponse'
+                - $ref: '#/components/schemas/DuplicateGroupResponse'
+        '400':
+          description: Input schema validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BadRequestError'
+        '401':
+          description: Missing, invalid, or expired JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedError'
+        '403':
+          description: Token scope does not allow this handler
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForbiddenError'
+        '500':
+          description: The backing helper failed without a structured JSON response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalServerError'
+  /add-user:
+    post:
+      tags:
+      - Users
+      - Administration
+      summary: Create a user
+      operationId: addUser
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddUserRequest'
+      responses:
+        '200':
+          description: The user was created, or the handler returned a structured
+            duplicate-user failure
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - $ref: '#/components/schemas/AddUserSuccessResponse'
+                - $ref: '#/components/schemas/DuplicateUserResponse'
+        '400':
+          description: Input schema validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BadRequestError'
+        '401':
+          description: Missing, invalid, or expired JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedError'
+        '403':
+          description: Token scope does not allow this handler
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForbiddenError'
+        '500':
+          description: The backing helper failed without a structured JSON response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalServerError'
+  /alter-group:
+    post:
+      tags:
+      - Groups
+      - Administration
+      summary: Update a group
+      operationId: alterGroup
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlterGroupRequest'
+      responses:
+        '200':
+          description: The group was updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlterGroupResponse'
+        '400':
+          description: Input schema validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BadRequestError'
+        '401':
+          description: Missing, invalid, or expired JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedError'
+        '403':
+          description: Token scope does not allow this handler
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForbiddenError'
+        '500':
+          description: The backing helper failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalServerError'
+  /alter-user:
+    post:
+      tags:
+      - Users
+      - Administration
+      summary: Update a user
+      description: 'Password-change validation failures are reported as HTTP 200 with
+        `status: failure`; unhandled helper failures still become HTTP 500.'
+      operationId: alterUser
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlterUserRequest'
+      responses:
+        '200':
+          description: The user was updated, or the handler returned a structured
+            password-policy failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlterUserResponse'
+        '400':
+          description: Input schema validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BadRequestError'
+        '401':
+          description: Missing, invalid, or expired JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedError'
+        '403':
+          description: Token scope does not allow this handler
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForbiddenError'
+        '500':
+          description: The backing helper failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalServerError'
+  /change-password:
+    post:
+      tags:
+      - Users
+      - Password policy
+      summary: Change the current user's password
+      description: The current user is derived from `JWT_ID`. This handler is intended
+        for self-service use and is available to restricted user tokens.
+      operationId: changePassword
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '200':
+          description: The password was changed, or the handler returned a structured
+            failure reason
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChangePasswordResponse'
+        '400':
+          description: Input schema validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BadRequestError'
+        '401':
+          description: Missing, invalid, or expired JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedError'
+        '403':
+          description: Token scope does not allow this handler
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForbiddenError'
+        '500':
+          description: The backing helper failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalServerError'
+  /export-users:
+    post:
+      tags:
+      - Users
+      - Administration
+      summary: Export users
+      description: This handler expects a JSON request body even though it does not
+        consume any parameters. Send `{}`.
+      operationId: exportUsers
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmptyObjectRequest'
+      responses:
+        '200':
+          description: Users were exported
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportUsersResponse'
+        '401':
+          description: Missing, invalid, or expired JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedError'
+        '403':
+          description: Token scope does not allow this handler
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForbiddenError'
+        '500':
+          description: The backing helper failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalServerError'
+  /get-configuration:
+    post:
+      tags:
+      - Configuration
+      - Administration
+      summary: Read module configuration exposed by the users-admin API
+      description: This handler expects a JSON request body even though it does not
+        consume any parameters. Send `{}`.
+      operationId: getConfiguration
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmptyObjectRequest'
+      responses:
+        '200':
+          description: Configuration was returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetConfigurationResponse'
+        '401':
+          description: Missing, invalid, or expired JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedError'
+        '403':
+          description: Token scope does not allow this handler
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForbiddenError'
+        '500':
+          description: The backing helper failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalServerError'
+  /get-password-policy:
+    post:
+      tags:
+      - Password policy
+      summary: Read the effective password policy
+      description: This handler expects a JSON request body even though it does not
+        consume any parameters. Send `{}`. It is available to restricted user tokens.
+      operationId: getPasswordPolicy
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmptyObjectRequest'
+      responses:
+        '200':
+          description: Password policy was returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetPasswordPolicyResponse'
+        '401':
+          description: Missing, invalid, or expired JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedError'
+        '403':
+          description: Token scope does not allow this handler
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForbiddenError'
+        '500':
+          description: The backing helper failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalServerError'
+  /import-users:
+    post:
+      tags:
+      - Users
+      - Administration
+      summary: Import users
+      description: 'Imports user records and creates missing groups on the fly. The
+        handler reports import-wide failure as HTTP 200 with `status: failure` and
+        `message: import_failed`.'
+      operationId: importUsers
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImportUsersRequest'
+      responses:
+        '200':
+          description: Users were imported, or the import failed with a structured
+            status payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportUsersResponse'
+        '400':
+          description: Input schema validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BadRequestError'
+        '401':
+          description: Missing, invalid, or expired JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedError'
+        '403':
+          description: Token scope does not allow this handler
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForbiddenError'
+        '500':
+          description: The backing helper failed before returning JSON
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalServerError'
+  /list-groups:
+    post:
+      tags:
+      - Groups
+      - Administration
+      summary: List groups
+      description: This handler expects a JSON request body even though it does not
+        consume any parameters. Send `{}`.
+      operationId: listGroups
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmptyObjectRequest'
+      responses:
+        '200':
+          description: Groups were returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListGroupsResponse'
+        '401':
+          description: Missing, invalid, or expired JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedError'
+        '403':
+          description: Token scope does not allow this handler
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForbiddenError'
+        '500':
+          description: The backing helper failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalServerError'
+  /list-users:
+    post:
+      tags:
+      - Users
+      - Administration
+      summary: List users
+      description: This handler expects a JSON request body even though it does not
+        consume any parameters. Send `{}`.
+      operationId: listUsers
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmptyObjectRequest'
+      responses:
+        '200':
+          description: Users were returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListUsersResponse'
+        '401':
+          description: Missing, invalid, or expired JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedError'
+        '403':
+          description: Token scope does not allow this handler
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForbiddenError'
+        '500':
+          description: The backing helper failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalServerError'
+  /remove-group:
+    post:
+      tags:
+      - Groups
+      - Administration
+      summary: Delete a group
+      operationId: removeGroup
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RemoveGroupRequest'
+      responses:
+        '200':
+          description: The group was removed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RemoveGroupResponse'
+        '400':
+          description: Input schema validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BadRequestError'
+        '401':
+          description: Missing, invalid, or expired JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedError'
+        '403':
+          description: Token scope does not allow this handler
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForbiddenError'
+        '500':
+          description: The backing helper failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalServerError'
+  /remove-user:
+    post:
+      tags:
+      - Users
+      - Administration
+      summary: Delete a user
+      operationId: removeUser
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RemoveUserRequest'
+      responses:
+        '200':
+          description: The user was removed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RemoveUserResponse'
+        '400':
+          description: Input schema validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BadRequestError'
+        '401':
+          description: Missing, invalid, or expired JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedError'
+        '403':
+          description: Token scope does not allow this handler
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForbiddenError'
+        '500':
+          description: The backing helper failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalServerError'
+components:
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    ValidationError:
+      type: object
+      required:
+      - parameter
+      - error
+      - value
+      - field
+      properties:
+        parameter:
+          type: string
+        error:
+          type: string
+        value: true
+        field:
+          type: string
+    BadRequestError:
+      type: object
+      required:
+      - code
+      - status
+      - error
+      properties:
+        code:
+          type: integer
+          enum:
+          - 400
+        status:
+          type: string
+          enum:
+          - Bad request
+        error:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationError'
+    UnauthorizedError:
+      type: object
+      required:
+      - code
+      - message
+      properties:
+        code:
+          type: integer
+          enum:
+          - 401
+        message:
+          type: string
+    ForbiddenError:
+      type: object
+      required:
+      - code
+      - message
+      properties:
+        code:
+          type: integer
+          enum:
+          - 403
+        message:
+          type: string
+          enum:
+          - you don't have permission to access this resource
+    InternalServerError:
+      type: object
+      required:
+      - code
+      - status
+      properties:
+        code:
+          type: integer
+          enum:
+          - 500
+        status:
+          type: string
+          enum:
+          - Internal server error
+        error:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationError'
+    EmptyObjectRequest:
+      type: object
+      description: Handlers without parameters still expect a valid JSON document.
+        Use an empty object.
+      examples:
+      - {}
+    Claims:
+      type: object
+      required:
+      - uid
+      - groups
+      properties:
+        uid:
+          type: string
+        groups:
+          type: array
+          items:
+            type: string
+        scope:
+          type: array
+          items:
+            type: string
+          description: If omitted, the token is unrestricted. If present, only the
+            listed handlers are authorized.
+        auth_backend:
+          type: string
+          description: Currently emitted by `auth_backend=api-server` logins.
+      additionalProperties: true
+    LoginRequest:
+      type: object
+      required:
+      - username
+      - password
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+        auth_backend:
+          type: string
+          enum:
+          - ldap
+          - api-server
+          default: ldap
+    LoginSuccessResponse:
+      type: object
+      required:
+      - code
+      - token
+      - expire
+      - message
+      - claims
+      properties:
+        code:
+          type: integer
+          enum:
+          - 200
+        token:
+          type: string
+        expire:
+          type: string
+          format: date-time
+        message:
+          type: string
+          enum:
+          - login succeeded
+        claims:
+          $ref: '#/components/schemas/Claims'
+    LoginFailureResponse:
+      type: object
+      required:
+      - code
+      - message
+      properties:
+        code:
+          type: integer
+          enum:
+          - 401
+        message:
+          type: string
+          examples:
+          - incorrect Username or Password
+    BasicAuthSuccessResponse:
+      type: object
+      required:
+      - code
+      - message
+      properties:
+        code:
+          type: integer
+          enum:
+          - 200
+        message:
+          type: string
+          enum:
+          - login succeeded
+    LogoutResponse:
+      type: object
+      required:
+      - code
+      properties:
+        code:
+          type: integer
+          enum:
+          - 200
+    StatusResponse:
+      type: object
+      required:
+      - status
+      - message
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+        message:
+          type: string
+    StructuredFailureResponse:
+      type: object
+      required:
+      - status
+      - message
+      - error
+      properties:
+        status:
+          type: string
+          enum:
+          - failure
+        message:
+          type: string
+        error:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationError'
+    PasswordPolicy:
+      type: object
+      required:
+      - expiration
+      - strength
+      properties:
+        expiration:
+          type: object
+          required:
+          - enforced
+          - max_age
+          - min_age
+          properties:
+            enforced:
+              type: boolean
+            max_age:
+              type: integer
+            min_age:
+              type: integer
+        strength:
+          type: object
+          required:
+          - enforced
+          - history_length
+          - password_min_length
+          - complexity_check
+          properties:
+            enforced:
+              type: boolean
+            history_length:
+              type: integer
+            password_min_length:
+              type: integer
+            complexity_check:
+              type: boolean
+    UserImportExportRecord:
+      type: object
+      required:
+      - user
+      properties:
+        user:
+          type: string
+          minLength: 1
+          maxLength: 255
+          pattern: ^[a-zA-Z][-._a-zA-Z0-9]*$
+        display_name:
+          type: string
+          maxLength: 256
+        password:
+          type: string
+          maxLength: 256
+          description: Accepted on import only; never returned by export.
+        locked:
+          type: boolean
+          description: If true, the account is locked.
+        groups:
+          type: array
+          items:
+            type: string
+        mail:
+          type: string
+        must_change_password:
+          type: boolean
+          description: Accepted for compatibility by import; export always returns
+            `false` in this backend.
+        no_password_expiration:
+          type: boolean
+    ListUserRecord:
+      type: object
+      required:
+      - user
+      - display_name
+      - locked
+      - expired
+      - password_expiration
+      - mail
+      properties:
+        user:
+          type: string
+        display_name:
+          type: string
+        locked:
+          type: boolean
+        expired:
+          type: boolean
+        password_expiration:
+          type: integer
+          description: Unix timestamp, or `-1` when the password does not expire.
+        mail:
+          type: string
+    GroupListRecord:
+      type: object
+      required:
+      - group
+      - description
+      - users
+      properties:
+        group:
+          type: string
+        description:
+          type: string
+        users:
+          type: array
+          items:
+            type: string
+    AddGroupRequest:
+      type: object
+      required:
+      - group
+      - users
+      properties:
+        group:
+          type: string
+          minLength: 1
+        description:
+          type: string
+          maxLength: 256
+        users:
+          type: array
+          items:
+            type: string
+            minLength: 1
+    AddGroupSuccessResponse:
+      type: object
+      required:
+      - status
+      - message
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+        message:
+          type: string
+          enum:
+          - group_created
+    DuplicateGroupResponse:
+      allOf:
+      - $ref: '#/components/schemas/StructuredFailureResponse'
+      - properties:
+          message:
+            type: string
+            description: Currently emitted as an empty string by the handler.
+    AddUserRequest:
+      type: object
+      required:
+      - user
+      properties:
+        user:
+          type: string
+          minLength: 1
+          maxLength: 255
+          pattern: ^[a-zA-Z][-._a-zA-Z0-9]*$
+        display_name:
+          type: string
+          maxLength: 256
+        password:
+          type: string
+          maxLength: 256
+          description: If omitted or empty, the helper generates a random password.
+        locked:
+          type: boolean
+        groups:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            minLength: 1
+        no_password_expiration:
+          type: boolean
+        mail:
+          oneOf:
+          - type: string
+            format: email
+          - type: string
+            maxLength: 0
+    AddUserSuccessResponse:
+      type: object
+      required:
+      - status
+      - message
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+        message:
+          type: string
+          enum:
+          - user_created
+    DuplicateUserResponse:
+      allOf:
+      - $ref: '#/components/schemas/StructuredFailureResponse'
+      - properties:
+          message:
+            type: string
+            description: Currently emitted as an empty string by the handler.
+    AlterGroupRequest:
+      type: object
+      required:
+      - group
+      properties:
+        group:
+          type: string
+          minLength: 1
+        description:
+          type: string
+          maxLength: 256
+        users:
+          type: array
+          items:
+            type: string
+            minLength: 1
+    AlterGroupResponse:
+      type: object
+      required:
+      - status
+      - message
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+        message:
+          type: string
+          enum:
+          - group_altered
+    AlterUserRequest:
+      type: object
+      required:
+      - user
+      properties:
+        user:
+          type: string
+          minLength: 1
+        display_name:
+          type: string
+          maxLength: 256
+        password:
+          type: string
+          maxLength: 256
+          description: If present and empty, the helper generates a random password.
+        groups:
+          type: array
+          items:
+            type: string
+            minLength: 1
+        locked:
+          type: boolean
+        no_password_expiration:
+          type: boolean
+        mail:
+          oneOf:
+          - type: string
+            format: email
+          - type: string
+            maxLength: 0
+    AlterUserResponse:
+      type: object
+      required:
+      - status
+      - message
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+        message:
+          type: string
+          enum:
+          - password_changed
+          - error_password_complexity
+          - error_password_history
+          - error_password_same
+          - error_unknown
+    ChangePasswordRequest:
+      type: object
+      required:
+      - current_password
+      - new_password
+      properties:
+        current_password:
+          type: string
+        new_password:
+          type: string
+    ChangePasswordResponse:
+      type: object
+      required:
+      - status
+      - message
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+        message:
+          type: string
+          enum:
+          - password_changed
+          - user_not_found
+          - error_invalid_credentials
+          - error_password_complexity
+          - error_password_length
+          - error_password_history
+          - error_password_minimum_age
+          - error_unknown
+    ExportUsersResponse:
+      type: object
+      required:
+      - status
+      - message
+      - records
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+        message:
+          type: string
+          enum:
+          - users_exported
+        records:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserImportExportRecord'
+    GetConfigurationResponse:
+      type: object
+      required:
+      - status
+      - message
+      - config
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+        message:
+          type: string
+          enum:
+          - configuration_listed
+        config:
+          type: object
+          required:
+          - password_settings
+          properties:
+            password_settings:
+              $ref: '#/components/schemas/PasswordPolicy'
+    GetPasswordPolicyResponse:
+      type: object
+      required:
+      - status
+      - message
+      - policy
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+        message:
+          type: string
+          enum:
+          - password_policy
+        policy:
+          $ref: '#/components/schemas/PasswordPolicy'
+    ImportUsersRequest:
+      type: object
+      required:
+      - records
+      properties:
+        skip_existing:
+          type: boolean
+          default: false
+        records:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserImportExportRecord'
+    ImportUsersResponse:
+      type: object
+      required:
+      - status
+      - message
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+        message:
+          type: string
+          enum:
+          - users_imported
+          - import_failed
+    ListGroupsResponse:
+      type: object
+      required:
+      - status
+      - message
+      - groups
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+        message:
+          type: string
+          enum:
+          - groups_listed
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/GroupListRecord'
+    ListUsersResponse:
+      type: object
+      required:
+      - status
+      - message
+      - users
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+        message:
+          type: string
+          enum:
+          - users_listed
+        users:
+          type: array
+          items:
+            $ref: '#/components/schemas/ListUserRecord'
+    RemoveGroupRequest:
+      type: object
+      required:
+      - group
+      properties:
+        group:
+          type: string
+          minLength: 1
+    RemoveGroupResponse:
+      type: object
+      required:
+      - status
+      - message
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+        message:
+          type: string
+          enum:
+          - group_removed
+    RemoveUserRequest:
+      type: object
+      required:
+      - user
+      properties:
+        user:
+          type: string
+          minLength: 1
+    RemoveUserResponse:
+      type: object
+      required:
+      - status
+      - message
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+        message:
+          type: string
+          enum:
+          - user_removed

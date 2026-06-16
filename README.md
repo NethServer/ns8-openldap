@@ -114,6 +114,9 @@ is mapped to an URL like
 
     https://<node FQDN>/users-admin/domain.test/api/
 
+An OpenAPI description of the implemented users-admin HTTP API is available
+at `imageroot/api-moduled/openapi.yaml`.
+
 The `.json` files define the API input/output syntax validation, using the
 JSON schema language. As such they can give an idea of request/response
 payload structure.

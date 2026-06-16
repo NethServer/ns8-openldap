@@ -1,0 +1,7 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "get-password-expiration input",
+    "$id": "http://schema.nethserver.org/ns8-openldap/api-moduled/handlers/get-password-expiration/validate-input.json",
+    "type": "object",
+    "additionalProperties": false
+}

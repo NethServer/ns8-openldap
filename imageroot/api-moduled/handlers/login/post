@@ -61,6 +61,7 @@ def api_server_login(request):
             "remove-group",
             "export-users",
             "import-users",
+            "get-password-expiration",
             "list-users",
             "list-groups",
         ],
@@ -85,11 +86,11 @@ def ldap_login(request):
         "groups": list(ogroup["group"] for ogroup in ouser["groups"]),
     }
     if proc_whoami.returncode == 49 and "Password expired" in proc_whoami.stderr:
-        oclaims["scope"] = ["change-password", "get-password-policy"]
+        oclaims["scope"] = ["change-password", "get-password-policy", "get-password-expiration"]
     elif proc_whoami.returncode != 0:
         sys.exit(3)  # Login failed
     elif "domain admins" not in oclaims["groups"]:
-        oclaims["scope"] = ["change-password", "get-password-policy"]
+        oclaims["scope"] = ["change-password", "get-password-policy", "get-password-expiration"]
     return oclaims
 
 

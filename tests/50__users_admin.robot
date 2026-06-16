@@ -37,6 +37,14 @@ User can login and obtain a token
     Should Not Be Empty    ${token}
     Set Suite Variable    ${TOKEN}    ${token}
 
+User can retrieve own password expiration
+    ${output}  ${error}  ${rc} =  Execute Command    curl -v -H "Authorization: Bearer ${TOKEN}" -H 'Content-type: application/json' --data '{}' -k https://127.0.0.1/users-admin/${DOMAIN}/api/get-password-expiration    return_rc=1  return_stderr=True
+    Should Be Equal As Integers    ${rc}    0
+    Should Contain    ${output}    "status":"success"
+    Should Contain    ${output}    "expiration"
+    Should Contain    ${output}    "expired"
+    Should Contain    ${output}    "must_change":false
+
 Allowed access with valid token
     ${output}  ${error}  ${rc} =  Execute Command    curl -v -H "Authorization: Bearer ${TOKEN}" -H 'Content-type: application/json' --data '{}' -k https://127.0.0.1/users-admin/${DOMAIN}/api/logout    return_rc=1  return_stderr=True
     Should Be Equal As Integers    ${rc}    0

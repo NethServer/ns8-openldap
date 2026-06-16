@@ -483,6 +483,48 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/InternalServerError'
+  /get-password-expiration:
+    post:
+      tags:
+      - Password policy
+      summary: Read the current user's password expiration status
+      description: This handler returns only password-expiration-related information
+        for the authenticated user. It is available to normal user tokens as well
+        as admin tokens.
+      operationId: getPasswordExpiration
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmptyObjectRequest'
+      responses:
+        '200':
+          description: Password expiration info was returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetPasswordExpirationResponse'
+        '401':
+          description: Missing, invalid, or expired JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedError'
+        '403':
+          description: Token scope does not allow this handler
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForbiddenError'
+        '500':
+          description: The backing helper failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalServerError'
   /import-users:
     post:
       tags:
@@ -1298,6 +1340,43 @@ components:
           - password_policy
         policy:
           $ref: '#/components/schemas/PasswordPolicy'
+    UserGroupMembership:
+      type: object
+      required:
+      - group
+      properties:
+        group:
+          type: string
+        description:
+          type: string
+    GetPasswordExpirationResponse:
+      type: object
+      required:
+      - status
+      - message
+      - expired
+      - expiration
+      - must_change
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+          - failure
+        message:
+          type: string
+          enum:
+          - password_expiration
+          - user_not_found
+        expired:
+          type: boolean
+        expiration:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+        must_change:
+          type: boolean
     ImportUsersRequest:
       type: object
       required:

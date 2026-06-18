@@ -70,6 +70,7 @@ Check if imported.user is present
     Should Be Equal As Integers    ${rc}    0
     Should Contain    ${output}    "status":"success"
     Should Contain    ${output}    "user":"imported.user"
+    Should Contain    ${output}    "no_password_expiration":true
 
 Remove imported.user
     ${output}  ${error}  ${rc} =  Execute Command    curl -v -H "Authorization: Bearer ${TOKEN}" -H 'Content-type: application/json' --data '{"user":"imported.user"}' -k https://127.0.0.1/users-admin/${DOMAIN}/api/remove-user    return_rc=1  return_stderr=True

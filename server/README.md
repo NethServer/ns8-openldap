@@ -84,7 +84,7 @@ Other commands:
   already destroyed, the local slapd server must be running. Applied
   changes are propagated to other servers with syncrepl as usual.
 
-# Run with Podman
+## Run with Podman
 
 Create a `./lenv` file with the following contents
 
@@ -107,3 +107,19 @@ Start the service
 Enter the container
 
     podman exec -ti openldap ash
+
+## Password policy (ppolicy)
+
+- An additional `ppcheck.c` module is compiled and dynamically loaded by
+  slapd. It implements a simple password complexity check that requires a
+  mix of character types (see the code for details).
+- The default password policy is configured in `config.ldif`.
+- Individual users can select an alternative policy through the
+  `pwdPolicySubentry` attribute. For example, `neverexpires` disables
+  password expiration for that user.
+- As an alternative to the `neverexpires` policy, entries without the
+  `pwdChangedTime` operational attribute are also treated as non-expiring.
+  This is mainly used for users imported from NS7.
+- When a password is changed, `pwdChangedTime` is updated. When
+  `alter-user -r` switches an imported user back to the expiring policy, it
+  preserves the current password and adds the current timestamp.

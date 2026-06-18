@@ -53,6 +53,7 @@ if [ -f dump-mdb0.ldif ]; then
     slapadd -v -c -F conf.d -b "${LDAP_SUFFIX}" -l dump-mdb0.ldif
 else
     echo "Creating ${LDAP_SUFFIX} database for ${LDAP_DOMAIN}"
+    export TS_NOW="$(date -u +%Y%m%d%H%M%SZ)" # For mdb0.ldif template expansion
     slapadd -v -w -S "${LDAP_SERVERID}" -b "${LDAP_SUFFIX}" -F conf.d < <(envsubst <"${TEMPLATES_DIR}/mdb0.ldif" | tee dump-mdb0.ldif)
 fi
 slaptest -v -F conf.d

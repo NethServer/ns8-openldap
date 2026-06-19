@@ -7,8 +7,6 @@
 
 #
 # - Define the "neverexpires" password policy, if it's missing.
-# - If missing, apply also "neverexpires" to existing users that have no
-#   pwdChangedTime attribute.
 #
 podman exec -i openldap ash -s <<'EOF'
 {
@@ -19,15 +17,5 @@ podman exec -i openldap ash -s <<'EOF'
     -e 's/^cn: default/cn: neverexpires/' \
     -e 's/^pwdMaxAge:.*/pwdMaxAge: 0/' \
     -e 's/^pwdExpireWarning:.*/pwdExpireWarning: 0/'
-  ldapsearch -QLLLo ldif_wrap=no "(&(objectClass=inetOrgPerson)(!(pwdChangedTime=*))(!(pwdPolicySubentry=*)))" dn | \
-    awk -v "ldap_suffix=${LDAP_SUFFIX}" '
-    /^dn:/ {
-        print $0
-        print "changetype: modify"
-        print "add: pwdPolicySubentry"
-        print "pwdPolicySubentry: cn=neverexpires,ou=PPolicy," ldap_suffix
-        print "-"
-        print ""
-    }'
 } | ldapmodify -Q || :
 EOF

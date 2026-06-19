@@ -7,12 +7,12 @@
 
 For export_users():
   - returns list of user records with keys: user, display_name, locked,
-    groups, mail, must_change_password (always False), no_password_expiration (always False)
+    groups, mail, must_change_password (always False), no_password_expiration
     (password is never exported).
 
 For import_users(records, skip_existing, progfunc):
   - records list items may contain: user (required), display_name, password,
-    locked, groups list, mail. Other AD-only flags ignored.
+    locked, groups list, mail, no_password_expiration. Other AD-only flags ignored.
   - When skip_existing is True existing users are skipped.
   - progfunc receives percentage progress (0-100).
 
@@ -37,6 +37,7 @@ ACTYPE = 5
 ACDISPLAY = 6
 ACMAIL = 7
 ACPWDLASTSET = 8
+ACPPOLICY = 9
 
 def export_users() -> list:
     # ldapcli returns: user, groups, ... plus optional attrs
@@ -49,7 +50,10 @@ def export_users() -> list:
             'user': u[ACID],
             'locked': bool(u[ACUAC]),
             'must_change_password': False,
-            'no_password_expiration': False,
+            'no_password_expiration': (
+                u[ACPWDLASTSET] is None
+                or u[ACPPOLICY] == f'cn=neverexpires,ou=PPolicy,{LDAP_SUFFIX}'
+            ),
         }
         if u[ACDISPLAY]:
             rec["display_name"] = u[ACDISPLAY]
@@ -99,6 +103,7 @@ def import_users(records: list, skip_existing: bool, progfunc) -> bool:
         password = rec.get('password') or None
         display_name = rec.get('display_name')
         mail = rec.get('mail')
+        no_password_expiration = rec.get('no_password_expiration')
         if user in adb:
             if skip_existing:
                 done += 1
@@ -120,6 +125,8 @@ def import_users(records: list, skip_existing: bool, progfunc) -> bool:
                 alt_cmd += ['-m', ''] # delete mail attribute
             elif mail:
                 alt_cmd += ['-m', mail] # replace value
+            if no_password_expiration is not None:
+                alt_cmd += ['-n'] if no_password_expiration else ['-r']
             alt_cmd.append(user)
             try:
                 subprocess.run(alt_cmd, input=password, stdout=sys.stderr, check=True, text=True)
@@ -141,6 +148,8 @@ def import_users(records: list, skip_existing: bool, progfunc) -> bool:
                 add_cmd += ['-d', user.title()]
             if mail:
                 add_cmd += ['-m', mail]
+            if no_password_expiration:
+                add_cmd += ['-n']
             add_cmd.append(user)
             try:
                 subprocess.run(add_cmd, input=password, stdout=sys.stderr, check=True, text=True)
@@ -157,7 +166,7 @@ def import_users(records: list, skip_existing: bool, progfunc) -> bool:
     return errors == 0
 
 def _get_accounts() -> dict:
-    """Returns users and groups. Each dict value is a list of 9 elements.
+    """Returns users and groups. Each dict value is a list of 10 elements.
     """
     def v(line):
         a, v = line.split(": ", 1)
@@ -169,7 +178,7 @@ def _get_accounts() -> dict:
         return v
 
     def _make_record():
-        record = list((None,)*9)
+        record = list((None,)*10)
         record[ACGROUPS] = []
         record[ACMEMBERS] = []
         record[ACTYPE] = 'U'
@@ -188,6 +197,7 @@ def _get_accounts() -> dict:
             'memberUid',
             'pwdAccountLockedTime',
             'pwdChangedTime',
+            'pwdPolicySubentry',
             'objectClass',
             'mail',
             'displayName',
@@ -235,6 +245,8 @@ def _get_accounts() -> dict:
                     except ValueError:
                         # Ignore invalid pwdChangedTime values; leave as None
                         pass
+                elif ldifline.startswith("pwdPolicySubentry:"):
+                    record[ACPPOLICY] = v(ldifline)
     # Fill group list of individual user records:
     group_iter = filter(lambda a: a[ACTYPE] == 'G', accounts.values())
     for g in group_iter:

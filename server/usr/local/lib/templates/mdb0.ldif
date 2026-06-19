@@ -86,3 +86,4 @@ objectClass: posixAccount
 objectClass: inetOrgPerson
 homeDirectory: /home/${LDAP_ADMUSER}
 pwdPolicySubentry: cn=neverexpires,ou=PPolicy,${LDAP_SUFFIX}
+pwdChangedTime: ${TS_NOW}

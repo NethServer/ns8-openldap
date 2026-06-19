@@ -124,6 +124,11 @@ payload structure.
   to a NS8 compatible schema. The script `utils/genschema.py` was used to
   export NS8 schema data in Python format.
 - The password policy feature does not exist in NS7. When the NS7 LDAP
-  account provider is migrated to NS8 the password policy is set in a
-  disabled state and can be enabled later from the Domains and Users page
-  as usual.
+  account provider is migrated to NS8, the password policy starts in a
+  disabled state and can be enabled later from the Domains and Users page.
+- NS7 users with password-never-expires flag (`shadowMax: 99999`) are
+  migrated without the `pwdChangedTime` attribute. In NS8, that state is
+  treated as non-expiring.
+- If password expiration is later re-enabled for one of those users, the
+  current password is preserved and `pwdChangedTime` is initialized at that
+  point.

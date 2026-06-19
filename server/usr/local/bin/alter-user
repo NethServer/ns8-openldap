@@ -181,6 +181,11 @@ fi
         printf 'dn: uid=%s,ou=People,%s\n' "${user}" "${LDAP_SUFFIX:?}"
         printf 'changetype: modify\n'
         printf 'delete: pwdPolicySubentry\n'
+        printf '\n'
+        printf 'dn: uid=%s,ou=People,%s\n' "${user}" "${LDAP_SUFFIX:?}"
+        printf 'changetype: modify\n'
+        printf 'add: pwdChangedTime\n'
+        printf 'pwdChangedTime: %s\n' "$(date -u +%Y%m%d%H%M%SZ)"
     elif [ "${nflag}" = 1 ]; then
         printf '\n' # do not conflict with previous ldap commands
         printf 'dn: uid=%s,ou=People,%s\n' "${user}" "${LDAP_SUFFIX:?}"
@@ -189,7 +194,7 @@ fi
         printf 'pwdPolicySubentry: cn=neverexpires,ou=PPolicy,%s\n' "${LDAP_SUFFIX:?}"
     fi
 
-) | ldapmodify -Q -c
+) | ldapmodify -e relax -Q -c 2>/dev/null || :
 
 if [ "${errors}" != 0 ]; then
     exit 1

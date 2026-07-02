@@ -23,7 +23,7 @@ buildah run \
     --workingdir=/usr/src/ui \
     --env="NODE_OPTIONS=--openssl-legacy-provider" \
     nodebuilder-openldap \
-    sh -c "yarn install && yarn build"
+    sh -c "corepack enable && yarn install && yarn build"
 
 buildah add "${container}" imageroot /imageroot
 

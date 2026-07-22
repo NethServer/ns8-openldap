@@ -1,0 +1,76 @@
+#!/usr/bin/env python3
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Reconcile replication config after a cluster membership change.
+#
+# When an OpenLDAP provider node/module is removed, surviving peers keep a stale
+# olcSyncrepl/olcServerID entry pointing at the gone provider. This handler runs
+# on every 'module-domain-changed' event, diffs the serverIDs configured in the
+# local slapd against the providers still advertised for this domain, and purges
+# the ones that disappeared. It republishes 'service-ldap-changed' so ldapproxy
+# drops the dead upstream. It is a no-op when nothing is stale.
+#
+
+import json
+import os
+import subprocess
+import sys
+import agent
+
+# The event payload is intentionally ignored: on provider removal the event
+# "domains" list can be empty (it only carries the domains a module *consumes*,
+# not the one it provides). We always reconcile our own domain against live
+# service discovery, which is authoritative.
+json.load(sys.stdin)
+
+agent_id = os.environ['AGENT_ID']
+domain = os.environ['LDAP_DOMAIN']
+
+rdb = agent.redis_connect(privileged=True)
+
+# Providers still advertised for this domain. The removed module's srv key has
+# already been deleted by the cluster action, so this reflects survivors only.
+live_urls = {
+    f"ldap://{p['host']}:{p['port']}"
+    for p in agent.list_service_providers(
+        rdb, 'ldap', transport='tcp',
+        filters={'domain': domain, 'schema': 'rfc2307'},
+    )
+}
+
+# serverIDs configured in the local slapd, each with its provider URL.
+result = subprocess.run(
+    ['podman', 'exec', 'openldap',
+     'ldapsearch', '-Q', '-LLL', '-o', 'ldif_wrap=no',
+     '-b', 'cn=config', '(objectClass=olcGlobal)', 'olcServerID'],
+    capture_output=True, text=True,
+)
+result.check_returncode()
+
+stale_serverids = []
+for line in result.stdout.splitlines():
+    parts = line.split()
+    # Format "olcServerID: <id> <url>". A bare "olcServerID: <id>" (single
+    # provider, no URL) has nothing to reconcile. Our own URL stays in live_urls,
+    # so self is never flagged stale.
+    if parts and parts[0] == 'olcServerID:' and len(parts) == 3 and parts[2] not in live_urls:
+        stale_serverids.append(parts[1])
+
+if not stale_serverids:
+    sys.exit(0)
+
+# Remove all stale serverIDs in a single call so that cn=config is modified only
+# once, avoiding syncrepl race conditions (rc -100 quitting on all peers).
+agent.run_helper(
+    'podman', 'exec', 'openldap',
+    'remove-server', *stale_serverids,
+).check_returncode()
+
+rdb.publish(agent_id + '/event/service-ldap-changed', json.dumps({
+    'domain': domain,
+    'node': int(os.environ['NODE_ID']),
+    'key': agent_id + '/srv/tcp/ldap',
+}))

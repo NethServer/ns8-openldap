@@ -33,13 +33,13 @@ rdb = agent.redis_connect(privileged=True)
 
 # Providers still advertised for this domain. The removed module's srv key has
 # already been deleted by the cluster action, so this reflects survivors only.
-live_urls = {
-    f"ldap://{p['host']}:{p['port']}"
-    for p in agent.list_service_providers(
-        rdb, 'ldap', transport='tcp',
-        filters={'domain': domain, 'schema': 'rfc2307'},
-    )
-}
+providers = agent.list_service_providers(
+    rdb, 'ldap', transport='tcp',
+    filters={'domain': domain, 'schema': 'rfc2307'},
+)
+if not providers:
+    sys.exit(0)
+live_urls = {f"ldap://{p['host']}:{p['port']}" for p in providers}
 
 # serverIDs configured in the local slapd, each with its provider URL.
 result = subprocess.run(
@@ -60,6 +60,18 @@ for line in result.stdout.splitlines():
         stale_serverids.append(parts[1])
 
 if not stale_serverids:
+    sys.exit(0)
+
+# Elect a single surviving provider to perform the removal. Every survivor
+# receives this event, but only one may modify cn=config: syncrepl then
+# propagates the change to the others. If they all acted, their concurrent
+# writes would race (a peer's replicated delete makes the local delete fail
+# with "no such value"), and parallel cn=config writes can be lost. The
+# election is deterministic (lowest node, then module id) so every survivor
+# agrees on the same actor without coordination.
+my_module_id = agent_id.split('/')[-1]
+elected = min(providers, key=lambda p: (int(p['node']), p['module_id']))
+if elected['module_id'] != my_module_id:
     sys.exit(0)
 
 # Remove all stale serverIDs in a single call so that cn=config is modified only

@@ -62,14 +62,21 @@ for line in result.stdout.splitlines():
 if not stale_serverids:
     sys.exit(0)
 
-# Every surviving provider cleans its OWN local cn=config. We cannot rely on a
-# single elected node plus config replication: olcSyncrepl lives in cn=config,
-# and deleting the config-DB syncrepl entry restarts the config consumer
-# (rc -100 quitting) mid-transaction, so peers can lose the remaining deletions
-# (e.g. the mdb olcSyncrepl entry survives on a peer). Acting locally on each
-# survivor guarantees convergence regardless of replication. remove-server is
-# idempotent (a value already dropped by a replicated change is tolerated), so
-# concurrent runs across survivors do not fail the handler.
+# Elect a single surviving provider to perform the removal. cn=config (which
+# holds olcSyncrepl) is itself replicated, so one change on one node propagates
+# to the peers on its own. Having every survivor write concurrently instead
+# would race on the same replicated entries. The election is deterministic
+# (lowest node, then module id) so every survivor agrees on the same actor
+# without coordination; remove-server orders its deletions (mdb, then config
+# DB, then olcServerID) so each one reaches the peers before the config-DB
+# change restarts the replication channel.
+my_module_id = agent_id.split('/')[-1]
+elected = min(providers, key=lambda p: (int(p['node']), p['module_id']))
+if elected['module_id'] != my_module_id:
+    sys.exit(0)
+
+# remove-server tolerates rc 16 (value already dropped by a replicated change),
+# so a redelivered event does not fail the handler.
 agent.run_helper(
     'podman', 'exec', 'openldap',
     'remove-server', *stale_serverids,

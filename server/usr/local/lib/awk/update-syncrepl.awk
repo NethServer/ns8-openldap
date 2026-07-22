@@ -24,7 +24,17 @@
 # Remove server "targetid" from the syncrepl configuration.
 #
 # This awk filter reads the current configuration database and prints an LDIF
-# script that removes server and syncrepl entries for the given "targetid"
+# script that removes server and syncrepl entries for the given "targetid".
+#
+# Output ordering matters. Removing the config DB olcSyncrepl (or the
+# olcServerID) restarts the cn=config syncrepl consumer on every peer
+# (rc -100 quitting): any change written after that point may not reach the
+# peers before the channel drops. We therefore emit the deletions least- to
+# most-disruptive so each one propagates before the next breaks the channel:
+#   1. data DB (mdb) olcSyncrepl
+#   2. config DB olcSyncrepl
+#   3. olcServerID
+# The directives are buffered and flushed in that order in the END block.
 #
 
 /^dn: / {
@@ -43,30 +53,35 @@
     servers_left++
     if (targetid == $2) {
         providermatch = " provider=" $3 " "
-        print "dn: cn=config"
-        print "changetype: modify"
-        print "delete: olcServerID"
-        print $0 "\n"
+        serverid_ldif = "dn: cn=config\nchangetype: modify\ndelete: olcServerID\n" $0 "\n\n"
         servers_left--
     }
 }
 
 /^olcSyncrepl: / {
-    if(servers_left < 2) {
-        # Remove replication attributes
-        print "dn: " lastdn
-        print "changetype: modify"
-        print "replace: olcSyncrepl"
-        print "-"
-        print "replace: olcMultiProvider" "\n"
+    if (servers_left < 2) {
+        # Last provider standing: strip replication from this DB entirely.
+        # One value per entry is enough (empty replace clears the attribute).
+        wipe_ldif[lastdn] = "dn: " lastdn "\nchangetype: modify\nreplace: olcSyncrepl\n-\nreplace: olcMultiProvider\n\n"
         # Turn on the flag to skip remaining lines of the current dn entry:
         skipentry = 1
         next
     } else if (providermatch && $0 ~ providermatch) {
-        # Expunge syncrepl config for targetid only
-        print "dn: " lastdn
-        print "changetype: modify"
-        print "delete: olcSyncrepl"
-        print $0 "\n"
+        # Expunge syncrepl config for targetid only, ordering mdb before config.
+        rec = "dn: " lastdn "\nchangetype: modify\ndelete: olcSyncrepl\n" $0 "\n\n"
+        if (lastdn ~ /mdb/) {
+            mdb_ldif = mdb_ldif rec
+        } else {
+            config_ldif = config_ldif rec
+        }
     }
+}
+
+END {
+    for (dn in wipe_ldif) {
+        printf "%s", wipe_ldif[dn]
+    }
+    printf "%s", mdb_ldif
+    printf "%s", config_ldif
+    printf "%s", serverid_ldif
 }

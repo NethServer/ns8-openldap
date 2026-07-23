@@ -12,15 +12,16 @@
 # survivors. Core deletes the dead module Redis keys and publishes
 # cluster/event/module-removed.
 #
-# Two things must happen on the survivors:
-#  1. The replication config must drop the dead server. One elected provider
-#     (the lowest server id) runs `remove-server <deadid>` against its own
-#     running slapd; mirror-mode replication propagates the change to the rest.
+# Two things must happen on every surviving provider:
+#  1. Its replication config must drop the dead server. Each survivor runs
+#     `remove-server <deadid>` against its own local slapd. Doing it locally
+#     (instead of once on an elected node and relying on replication) avoids a
+#     race where the cleanup does not reach every peer. remove-server is
+#     idempotent, so it is a no-op where the config is already clean.
 #  2. Removing an olcSyncrepl entry at runtime does NOT stop the already
-#     running consumer thread (slapd keeps retrying the dead provider forever).
-#     Every surviving provider must therefore restart slapd to drop the stale
-#     agreement. Restarts are staggered by server id so the providers do not
-#     all go down at the same moment.
+#     running consumer thread (slapd keeps retrying the dead provider forever),
+#     so slapd must be restarted to drop the stale agreement. Restarts are
+#     staggered by server id so the providers do not all go down at once.
 #
 
 import os
@@ -59,15 +60,14 @@ live = sorted({int(p["id"].removeprefix("openldap")) for p in providers})
 if not live or myid not in live:
     sys.exit(0)
 
-# Authoritative config cleanup runs once, on the lowest surviving server id.
-# remove-server is idempotent: if the graceful leave-domain path already
-# cleaned the config, or deadid is not part of this domain, it is a no-op.
-if myid == live[0]:
-    print(f"Removing stale replica openldap{deadid} from the {domain} replication config", file=sys.stderr)
-    agent.run_helper("podman", "exec", "openldap", "remove-server", str(deadid)).check_returncode()
+# Drop the dead server from the local replication config. remove-server is
+# idempotent (no-op when deadid is not part of this domain or already gone),
+# so its exit code is intentionally not checked.
+print(f"Removing stale replica openldap{deadid} from the {domain} replication config", file=sys.stderr)
+agent.run_helper("podman", "exec", "openldap", "remove-server", str(deadid))
 
 # Restart slapd to drop the lingering consumer thread. Stagger by rank so the
-# config cleanup has time to replicate and providers do not restart in unison.
+# providers do not all restart at the same moment.
 rank = live.index(myid)
 if rank > 0:
     time.sleep(rank * 8)

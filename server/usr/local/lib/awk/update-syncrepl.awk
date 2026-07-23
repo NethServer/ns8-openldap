@@ -25,9 +25,8 @@
 #
 # This awk filter reads the current configuration database and prints an LDIF
 # script that removes server and syncrepl entries for the given "targetid".
-# The syncrepl entries are matched by their rid, which is derived from the
-# server id (config rid = targetid * 2, data rid = targetid * 2 + 1), so the
-# removal also works when the olcServerID entry is already gone.
+# Syncrepl entries are matched by rid (config rid = targetid * 2, data rid + 1),
+# so removal works even when the olcServerID entry is already gone.
 #
 
 BEGIN {

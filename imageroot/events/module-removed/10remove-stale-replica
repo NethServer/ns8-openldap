@@ -8,8 +8,11 @@
 #
 # On module-removed, drop the removed openldap peer from the local replication
 # config and restart slapd. remove-server is run locally on each survivor (not
-# once via an elected node) to avoid a replication race; the restart is needed
-# because removing olcSyncrepl at runtime does not stop the consumer thread.
+# once via an elected node) to avoid a replication race. The restart is needed
+# because deleting olcSyncrepl at runtime does not reliably stop the running
+# consumer thread (slapd handles the change as delete+add and we cannot rely on
+# a clean teardown), so the thread keeps retrying the dead provider until slapd
+# is restarted. See https://openldap.org/lists/openldap-technical/201109/msg00023.html
 #
 
 import os

@@ -3,7 +3,7 @@ Description=OpenLDAP directory server
 
 [Service]
 Environment=PODMAN_SYSTEMD_UNIT=%n
-EnvironmentFile=%S/state/environment
+EnvironmentFile=%E/state/environment
 Restart=always
 TimeoutStopSec=70
 ExecStartPre=/bin/rm -f %t/openldap.pid %t/openldap.ctr-id
@@ -27,7 +27,7 @@ ExecStop=/usr/bin/podman stop --ignore --cidfile %t/openldap.ctr-id -t 10
 ExecStopPost=/usr/bin/podman rm --ignore -f --cidfile %t/openldap.ctr-id
 PIDFile=%t/openldap.pid
 Type=forking
-WorkingDirectory=%S/state
+WorkingDirectory=%E/state
 
 [Install]
 WantedBy=default.target

@@ -38,6 +38,7 @@ buildah config --entrypoint=/ \
     --label="org.nethserver.tcp-ports-demand=2" \
     --label="org.nethserver.rootfull=0" \
     --label="org.nethserver.images=${repobase}/openldap-server:${IMAGETAG:-latest}" \
+    --label="org.nethserver.min-core=3.20.1" \
     --label 'org.nethserver.flags=core_module account_provider' \
     "${container}"
 # Commit the image

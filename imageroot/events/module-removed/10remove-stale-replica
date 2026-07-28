@@ -21,7 +21,6 @@ import json
 import time
 
 import agent
-import cluster.userdomains
 
 event = json.load(sys.stdin)
 removed = event.get("module", "")
@@ -30,8 +29,8 @@ removed = event.get("module", "")
 if not removed.startswith("openldap"):
     sys.exit(0)
 
-deadid = int(removed.removeprefix("openldap"))
-myid = int(os.environ["MODULE_ID"].removeprefix("openldap"))
+deadid = agent.get_module_seq(removed)
+myid = agent.get_module_seq(os.environ["MODULE_ID"])
 
 # Self-removal is handled by the leave-domain action; remove-server refuses
 # to drop the local server anyway.
@@ -41,11 +40,10 @@ if deadid == myid:
 domain = os.environ["LDAP_DOMAIN"]
 
 with agent.redis_connect() as rdb:
-    domains = cluster.userdomains.get_internal_domains(rdb)
+    providers = agent.list_service_providers(rdb, "ldap", "tcp", filters={"domain": domain})
 
 # Surviving providers (the dead one's srv/tcp/ldap key is already gone).
-providers = domains.get(domain, {}).get("providers", [])
-live = sorted({int(p["id"].removeprefix("openldap")) for p in providers})
+live = sorted({provider["module_seq"] for provider in providers})
 
 if not live or myid not in live:
     sys.exit(0)

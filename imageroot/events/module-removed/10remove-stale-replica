@@ -29,6 +29,10 @@ removed = event.get("module", "")
 if not removed.startswith("openldap"):
     sys.exit(0)
 
+# Trust only the cluster agent: ignore events forged by apps or nodes.
+if os.getenv("AGENT_EVENT_SOURCE") != "cluster":
+    sys.exit(0)
+
 deadid = agent.get_module_seq(removed)
 myid = agent.get_module_seq(os.environ["MODULE_ID"])
 

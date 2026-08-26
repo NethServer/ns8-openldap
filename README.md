@@ -34,6 +34,59 @@ multi-provider cluster:
 The *admuser* credentials are now necessary to join the second node with the
 first one.
 
+## Rotate the ldapservice password
+
+The `ldapservice` account is the LDAP bind user of an internal domain: every
+module that consumes the domain binds with it. Its password is generated
+once, when the domain is created, and can be rotated with the following
+manual procedure. The password is stored in three places, that must be
+kept in sync:
+
+- the `userPassword` attribute of `cn=ldapservice,<base DN>`
+- the `LDAP_SVCPASS` variable, in the `environment` file of every `openldap`
+  module of the domain
+- the `bind_password` field of the `module/<module id>/srv/tcp/ldap` Redis
+  key. This is the key designed to publish the credentials: consumers must
+  read them from here, and never from the `module/<module id>/environment`
+  Redis copy.
+
+Store the new password in the module environment first, so that the next
+command can read it back from the `environment` file. Repeat this on every
+node running a provider of the domain (`openldap2`, `openldap3`...), with
+the same value:
+
+    runagent -m openldap1 python3 -c 'import agent ; agent.set_env("LDAP_SVCPASS", "NEWPASS")'
+
+Change the password in the LDAP database. Run this on one provider only:
+replication propagates the change to the other providers of the domain.
+
+    runagent -m openldap1 sh -c 'podman exec -i openldap ldappasswd -Q -s "${LDAP_SVCPASS}" "cn=${LDAP_SVCUSER},${LDAP_SUFFIX}"'
+
+From this moment consumers bind with a stale password, until the service
+discovery record is updated. Each provider advertises its own record, but
+they are all stored in the same database: as root on the leader node,
+update the record of every `openldap` module of the domain with `redis-cli`:
+
+    redis-cli HSET module/openldap1/srv/tcp/ldap bind_password NEWPASS
+    redis-cli HSET module/openldap2/srv/tcp/ldap bind_password NEWPASS
+
+Finally propagate the change with the `user-domain-changed` event, so that
+modules caching the credentials in their own configuration files refresh
+them. One event is enough for the whole cluster:
+
+    redis-cli PUBLISH module/openldap1/event/user-domain-changed '{"domain":"dom.test","domains":["dom.test"],"node_id":1}'
+
+If an application does not handle the `user-domain-changed` event correctly,
+it may be necessary to restart it, to pick up the new password.
+
+The `openldap` container does not need a restart, and replication is not
+affected, because syncrepl binds with different credentials.
+
+To verify the rotation:
+
+    runagent -m openldap1 sh -c 'podman exec -i openldap ldapwhoami -x -D "cn=${LDAP_SVCUSER},${LDAP_SUFFIX}" -w "$LDAP_SVCPASS" -H ldap://127.0.0.1:${LDAP_PORT}'
+    redis-cli HGETALL module/openldap1/srv/tcp/ldap
+
 ## Debug and Log
 
 The module sends slapd log messages to the syslog. The `LDAP_LOGLEVEL`

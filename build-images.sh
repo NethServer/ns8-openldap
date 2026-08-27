@@ -12,19 +12,6 @@ reponame="openldap"
 
 # Create a new empty container image
 container=$(buildah from scratch)
-
-# Reuse existing nodebuilder-openldap container, to speed up builds
-if ! buildah containers --format "{{.ContainerName}}" | grep -q nodebuilder-openldap; then
-    echo "Pulling NodeJS runtime..."
-    buildah from --name nodebuilder-openldap -v "${PWD}:/usr/src:z" docker.io/library/node:24-slim
-fi
-echo "Build static UI files with node..."
-buildah run \
-    --workingdir=/usr/src/ui \
-    --env="NODE_OPTIONS=--openssl-legacy-provider" \
-    nodebuilder-openldap \
-    sh -c "corepack enable && yarn install && yarn build"
-
 buildah add "${container}" imageroot /imageroot
 
 # Copy ui of ns8-user-manager
@@ -32,7 +19,7 @@ user_manager_version=v1.2.8
 curl -f -L -O https://github.com/NethServer/ns8-user-manager/releases/download/${user_manager_version}/ns8-user-manager-${user_manager_version}.tar.gz
 buildah add "${container}" ns8-user-manager-${user_manager_version}.tar.gz /imageroot/api-moduled/public/
 
-buildah add "${container}" ui/dist /ui
+buildah add "${container}" ui /ui
 buildah config --entrypoint=/ \
     --label='org.nethserver.authorizations=ldapproxy@node:accountprovider cluster:accountprovider traefik@node:routeadm' \
     --label="org.nethserver.tcp-ports-demand=2" \

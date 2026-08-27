@@ -49,7 +49,7 @@ images+=("${repobase}/${reponame}")
 
 # Server image from Alpine OpenLDAP
 reponame="openldap-server"
-container=$(buildah from docker.io/library/alpine:3.23.5)
+container=$(buildah from docker.io/library/alpine:3.24.1)
 buildah run "${container}" sh <<'EOF'
 apk add --no-cache \
     gettext \

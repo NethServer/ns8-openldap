@@ -174,6 +174,13 @@ The `.json` files define the API input/output syntax validation, using the
 JSON schema language. As such they can give an idea of request/response
 payload structure.
 
+## Running tests locally
+
+This module uses the NS8 standard testing infrastructure. For instructions
+on how to run the test suite locally, refer to the [Running tests
+locally](https://github.com/NethServer/ns8-github-actions/blob/v1/README.md#running-tests-locally)
+section of the ns8-github-actions repository.
+
 ## Migration notes
 
 - On the NS7 side a Python filter `ns8fixschema.py3` converts the LDIF dump

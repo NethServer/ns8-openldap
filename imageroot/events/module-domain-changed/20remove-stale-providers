@@ -71,7 +71,7 @@ if not stale_serverids:
 # DB, then olcServerID) so each one reaches the peers before the config-DB
 # change restarts the replication channel.
 my_module_id = agent_id.split('/')[-1]
-elected = min(providers, key=lambda p: (int(p['node']), p['module_id']))
+elected = providers[0]
 if elected['module_id'] != my_module_id:
     sys.exit(0)
 

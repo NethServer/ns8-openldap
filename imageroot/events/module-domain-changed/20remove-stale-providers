@@ -36,6 +36,7 @@ rdb = agent.redis_connect(privileged=True)
 providers = agent.list_service_providers(
     rdb, 'ldap', transport='tcp',
     filters={'domain': domain, 'schema': 'rfc2307'},
+    sortby="module_seq_asc",
 )
 if not providers:
     sys.exit(0)

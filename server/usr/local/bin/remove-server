@@ -38,6 +38,7 @@ done
 # One ldapmodify for all serverIDs: separate calls trigger a syncrepl
 # reconnection storm (rc -100 quitting).
 tmpconfig=$(mktemp)
+trap 'rm -f "${tmpconfig}"' EXIT
 ldapsearch -Q -LLL -o ldif_wrap=no -b cn=config \
     '(|(objectClass=olcDatabaseConfig)(objectClass=olcGlobal))' olcSyncrepl olcServerID \
     > "${tmpconfig}"
@@ -45,15 +46,10 @@ ldapsearch -Q -LLL -o ldif_wrap=no -b cn=config \
 # rc 16 (LDAP_NO_SUCH_ATTRIBUTE) means a peer already dropped the value through
 # config replication: expected and idempotent, so tolerate it.
 set +e
-{
-    for serverid in "$@"; do
-        awk -v "targetid=${serverid}" -f "${FILTERS_DIR}/update-syncrepl.awk" < "${tmpconfig}"
-    done
-} | tee "remove-server-combined.ldif" | ldapmodify -Q -c
+awk -v "targetid=$*" -f "${FILTERS_DIR}/update-syncrepl.awk" < "${tmpconfig}" \
+    | tee "remove-server-combined.ldif" | ldapmodify -Q -c
 rc=$?
 set -e
-
-rm -f "${tmpconfig}"
 
 if [ "${rc}" -ne 0 ] && [ "${rc}" -ne 16 ]; then
     exit "${rc}"

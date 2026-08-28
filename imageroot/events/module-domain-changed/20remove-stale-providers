@@ -70,7 +70,7 @@ if not stale_serverids:
 # without coordination; remove-server orders its deletions (mdb, then config
 # DB, then olcServerID) so each one reaches the peers before the config-DB
 # change restarts the replication channel.
-my_module_id = agent_id.split('/')[-1]
+my_module_id = os.environ['MODULE_ID']
 elected = providers[0]
 if elected['module_id'] != my_module_id:
     sys.exit(0)

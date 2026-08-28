@@ -4,14 +4,9 @@
 # Copyright (C) 2026 Nethesis S.r.l.
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# Reconcile replication config after a cluster membership change.
-#
-# When an OpenLDAP provider node/module is removed, surviving peers keep a stale
-# olcSyncrepl/olcServerID entry pointing at the gone provider. This handler runs
-# on every 'module-domain-changed' event, diffs the serverIDs configured in the
-# local slapd against the providers still advertised for this domain, and purges
-# the ones that disappeared. It republishes 'service-ldap-changed' so ldapproxy
-# drops the dead upstream. It is a no-op when nothing is stale.
+# When an OpenLDAP provider is removed, surviving peers keep a stale
+# olcSyncrepl/olcServerID entry pointing at it. Purge those entries and
+# republish 'service-ldap-changed' so ldapproxy drops the dead upstream.
 #
 
 import json
@@ -20,10 +15,8 @@ import subprocess
 import sys
 import agent
 
-# The event payload is intentionally ignored: on provider removal the event
-# "domains" list can be empty (it only carries the domains a module *consumes*,
-# not the one it provides). We always reconcile our own domain against live
-# service discovery, which is authoritative.
+# Payload ignored: on provider removal "domains" can be empty, it only lists
+# the domains a module consumes. Service discovery is authoritative.
 json.load(sys.stdin)
 
 agent_id = os.environ['AGENT_ID']
@@ -31,8 +24,7 @@ domain = os.environ['LDAP_DOMAIN']
 
 rdb = agent.redis_connect(privileged=True)
 
-# Providers still advertised for this domain. The removed module's srv key has
-# already been deleted by the cluster action, so this reflects survivors only.
+# The removed module's srv key is already gone, so this lists survivors only.
 providers = agent.list_service_providers(
     rdb, 'ldap', transport='tcp',
     filters={'domain': domain, 'schema': 'rfc2307'},
@@ -42,7 +34,6 @@ if not providers:
     sys.exit(0)
 live_urls = {f"ldap://{p['host']}:{p['port']}" for p in providers}
 
-# serverIDs configured in the local slapd, each with its provider URL.
 result = subprocess.run(
     ['podman', 'exec', 'openldap',
      'ldapsearch', '-Q', '-LLL', '-o', 'ldif_wrap=no',
@@ -54,30 +45,23 @@ result.check_returncode()
 stale_serverids = []
 for line in result.stdout.splitlines():
     parts = line.split()
-    # Format "olcServerID: <id> <url>". A bare "olcServerID: <id>" (single
-    # provider, no URL) has nothing to reconcile. Our own URL stays in live_urls,
-    # so self is never flagged stale.
+    # "olcServerID: <id> <url>"; a bare "<id>" means single provider, nothing
+    # to reconcile. Our own URL is in live_urls, so self is never stale.
     if parts and parts[0] == 'olcServerID:' and len(parts) == 3 and parts[2] not in live_urls:
         stale_serverids.append(parts[1])
 
 if not stale_serverids:
     sys.exit(0)
 
-# Elect a single surviving provider to perform the removal. cn=config (which
-# holds olcSyncrepl) is itself replicated, so one change on one node propagates
-# to the peers on its own. Having every survivor write concurrently instead
-# would race on the same replicated entries. The election is deterministic
-# (lowest node, then module id) so every survivor agrees on the same actor
-# without coordination; remove-server orders its deletions (mdb, then config
-# DB, then olcServerID) so each one reaches the peers before the config-DB
-# change restarts the replication channel.
+# Elect one survivor to write: cn=config is itself replicated, so a single
+# writer is enough and concurrent writers would race on the same entries. The
+# sort gives every survivor the same order, hence the same elected actor.
 my_module_id = os.environ['MODULE_ID']
 elected = providers[0]
 if elected['module_id'] != my_module_id:
     sys.exit(0)
 
-# remove-server tolerates rc 16 (value already dropped by a replicated change),
-# so a redelivered event does not fail the handler.
+# remove-server tolerates rc 16, so a redelivered event is harmless.
 agent.run_helper(
     'podman', 'exec', 'openldap',
     'remove-server', *stale_serverids,

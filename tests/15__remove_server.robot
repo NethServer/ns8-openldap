@@ -34,8 +34,8 @@ Removing the replica reconciles the surviving provider
     Set Suite Variable    ${MID2_PORT}    ${srv.port}
     ${sid} =    Evaluate    "${MID2}".removeprefix("openldap")
     Set Suite Variable    ${MID2_SERVERID}    ${sid}
-    # Removing the replica fires module-domain-changed. The surviving provider
-    # handles it by purging the stale syncrepl/serverID entry on its own.
+    # Removing the replica fires module-domain-changed; the survivor purges
+    # the stale entry on its own.
     Remove a module instance    ${MID2}
     Set Suite Variable    ${MID2}    na
     # The event handler runs asynchronously, retry until cn=config is reconciled.

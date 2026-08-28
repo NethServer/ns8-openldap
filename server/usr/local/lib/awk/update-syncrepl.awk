@@ -26,15 +26,13 @@
 # This awk filter reads the current configuration database and prints an LDIF
 # script that removes server and syncrepl entries for the given "targetid".
 #
-# Output ordering matters. Removing the config DB olcSyncrepl (or the
-# olcServerID) restarts the cn=config syncrepl consumer on every peer
-# (rc -100 quitting): any change written after that point may not reach the
-# peers before the channel drops. We therefore emit the deletions least- to
-# most-disruptive so each one propagates before the next breaks the channel:
+# Output ordering matters: deleting the config DB olcSyncrepl or the olcServerID
+# restarts the cn=config syncrepl consumer on every peer (rc -100 quitting), so
+# anything written after that may never reach them. Emit least- to
+# most-disruptive:
 #   1. data DB (mdb) olcSyncrepl
 #   2. config DB olcSyncrepl
 #   3. olcServerID
-# The directives are buffered and flushed in that order in the END block.
 #
 
 /^dn: / {
@@ -60,14 +58,14 @@
 
 /^olcSyncrepl: / {
     if (servers_left < 2) {
-        # Last provider standing: strip replication from this DB entirely.
-        # One value per entry is enough (empty replace clears the attribute).
+        # Last provider standing: an empty replace clears the whole attribute,
+        # so one value per entry is enough.
         wipe_ldif[lastdn] = "dn: " lastdn "\nchangetype: modify\nreplace: olcSyncrepl\n-\nreplace: olcMultiProvider\n\n"
         # Turn on the flag to skip remaining lines of the current dn entry:
         skipentry = 1
         next
     } else if (providermatch && $0 ~ providermatch) {
-        # Expunge syncrepl config for targetid only, ordering mdb before config.
+        # Expunge syncrepl config for targetid only.
         rec = "dn: " lastdn "\nchangetype: modify\ndelete: olcSyncrepl\n" $0 "\n\n"
         if (lastdn ~ /mdb/) {
             mdb_ldif = mdb_ldif rec

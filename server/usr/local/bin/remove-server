@@ -35,19 +35,15 @@ for serverid in "$@"; do
     fi
 done
 
-# Retrieve the current slapd configuration once, then generate LDIF for all
-# target serverIDs and apply them in a single ldapmodify call.  Using one
-# transaction avoids the syncrepl reconnection storm (rc -100 quitting) that
-# would be triggered by separate ldapmodify calls for each serverID.
+# One ldapmodify for all serverIDs: separate calls trigger a syncrepl
+# reconnection storm (rc -100 quitting).
 tmpconfig=$(mktemp)
 ldapsearch -Q -LLL -o ldif_wrap=no -b cn=config \
     '(|(objectClass=olcDatabaseConfig)(objectClass=olcGlobal))' olcSyncrepl olcServerID \
     > "${tmpconfig}"
 
-# ldapmodify may fail with rc 16 (LDAP_NO_SUCH_ATTRIBUTE) when a value this node
-# is about to delete has already been dropped by a peer via config replication.
-# Every surviving provider reconciles its own cn=config concurrently, so this is
-# expected and idempotent: tolerate rc 16, fail on anything else.
+# rc 16 (LDAP_NO_SUCH_ATTRIBUTE) means a peer already dropped the value through
+# config replication: expected and idempotent, so tolerate it.
 set +e
 {
     for serverid in "$@"; do

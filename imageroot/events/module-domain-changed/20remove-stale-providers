@@ -1,0 +1,74 @@
+#!/usr/bin/env python3
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# When an OpenLDAP provider is removed, surviving peers keep a stale
+# olcSyncrepl/olcServerID entry pointing at it. Purge those entries and
+# republish 'service-ldap-changed' so ldapproxy drops the dead upstream.
+#
+
+import json
+import os
+import subprocess
+import sys
+import agent
+
+# Payload ignored: on provider removal "domains" can be empty, it only lists
+# the domains a module consumes. Service discovery is authoritative.
+json.load(sys.stdin)
+
+agent_id = os.environ['AGENT_ID']
+domain = os.environ['LDAP_DOMAIN']
+
+rdb = agent.redis_connect(privileged=True)
+
+# The removed module's srv key is already gone, so this lists survivors only.
+providers = agent.list_service_providers(
+    rdb, 'ldap', transport='tcp',
+    filters={'domain': domain, 'schema': 'rfc2307'},
+    sortby="module_seq_asc",
+)
+if not providers:
+    sys.exit(0)
+live_urls = {f"ldap://{p['host']}:{p['port']}" for p in providers}
+
+result = subprocess.run(
+    ['podman', 'exec', 'openldap',
+     'ldapsearch', '-Q', '-LLL', '-o', 'ldif_wrap=no',
+     '-b', 'cn=config', '(objectClass=olcGlobal)', 'olcServerID'],
+    capture_output=True, text=True,
+)
+result.check_returncode()
+
+stale_serverids = []
+for line in result.stdout.splitlines():
+    parts = line.split()
+    # "olcServerID: <id> <url>"; a bare "<id>" means single provider, nothing
+    # to reconcile. Our own URL is in live_urls, so self is never stale.
+    if parts and parts[0] == 'olcServerID:' and len(parts) == 3 and parts[2] not in live_urls:
+        stale_serverids.append(parts[1])
+
+if not stale_serverids:
+    sys.exit(0)
+
+# Elect one survivor to write: cn=config is itself replicated, so a single
+# writer is enough and concurrent writers would race on the same entries. The
+# sort gives every survivor the same order, hence the same elected actor.
+my_module_id = os.environ['MODULE_ID']
+elected = providers[0]
+if elected['module_id'] != my_module_id:
+    sys.exit(0)
+
+# remove-server tolerates rc 16, so a redelivered event is harmless.
+agent.run_helper(
+    'podman', 'exec', 'openldap',
+    'remove-server', *stale_serverids,
+).check_returncode()
+
+rdb.publish(agent_id + '/event/service-ldap-changed', json.dumps({
+    'domain': domain,
+    'node': int(os.environ['NODE_ID']),
+    'key': agent_id + '/srv/tcp/ldap',
+}))

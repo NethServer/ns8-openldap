@@ -18,22 +18,40 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with NethServer.  If not, see COPYING.
-#
 
 # shellcheck shell=dash disable=SC3001
 
 set -e # exit on error
 
-serverid=${1:?missing server ID number argument}
-
-if [ "${serverid}" = "${LDAP_SERVERID}" ]; then
-    echo "[ERROR] Cannot remove the local running server itself"
+if [ "$#" -eq 0 ]; then
+    echo "[ERROR] missing server ID number argument(s)"
     exit 1
 fi
 
-# Update syncrepl configuration on local remote server:
+for serverid in "$@"; do
+    if [ "${serverid}" = "${LDAP_SERVERID}" ]; then
+        echo "[ERROR] Cannot remove the local running server itself"
+        exit 1
+    fi
+done
+
+# One ldapmodify for all serverIDs: separate calls trigger a syncrepl
+# reconnection storm (rc -100 quitting).
+tmpconfig=$(mktemp)
+trap 'rm -f "${tmpconfig}"' EXIT
 ldapsearch -Q -LLL -o ldif_wrap=no -b cn=config \
-    '(|(objectClass=olcDatabaseConfig)(objectClass=olcGlobal))' olcSyncrepl olcServerID | \
-    awk -v "targetid=${serverid}" -f "${FILTERS_DIR}/update-syncrepl.awk" | \
-    tee "remove-server-${serverid}.ldif" | \
-    ldapmodify -Q -c
+    '(|(objectClass=olcDatabaseConfig)(objectClass=olcGlobal))' olcSyncrepl olcServerID \
+    > "${tmpconfig}"
+
+# rc 16 (LDAP_NO_SUCH_ATTRIBUTE) means a peer already dropped the value through
+# config replication: expected and idempotent, so tolerate it.
+set +e
+awk -v "targetid=$*" -f "${FILTERS_DIR}/update-syncrepl.awk" < "${tmpconfig}" \
+    | tee "remove-server-combined.ldif" | ldapmodify -Q -c
+rc=$?
+set -e
+
+if [ "${rc}" -ne 0 ] && [ "${rc}" -ne 16 ]; then
+    exit "${rc}"
+fi
+

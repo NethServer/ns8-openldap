@@ -7,12 +7,13 @@
 
 For export_users():
   - returns list of user records with keys: user, display_name, locked,
-    groups, mail, must_change_password (always False), no_password_expiration
-    (password is never exported).
+    groups, mail, phone_extension, must_change_password (always False),
+    no_password_expiration (password is never exported).
 
 For import_users(records, skip_existing, progfunc):
   - records list items may contain: user (required), display_name, password,
-    locked, groups list, mail, no_password_expiration. Other AD-only flags ignored.
+    locked, groups list, mail, phone_extension, no_password_expiration.
+    Other AD-only flags ignored.
   - When skip_existing is True existing users are skipped.
   - progfunc receives percentage progress (0-100).
 
@@ -38,6 +39,7 @@ ACDISPLAY = 6
 ACMAIL = 7
 ACPWDLASTSET = 8
 ACPPOLICY = 9
+ACPHONE = 10
 
 def export_users() -> list:
     # ldapcli returns: user, groups, ... plus optional attrs
@@ -59,6 +61,8 @@ def export_users() -> list:
             rec["display_name"] = u[ACDISPLAY]
         if u[ACMAIL]:
             rec["mail"] = u[ACMAIL]
+        if u[ACPHONE]:
+            rec["phone_extension"] = u[ACPHONE]
         rec["groups"] = sorted(u[ACGROUPS])
         out.append(rec)
     return out
@@ -103,6 +107,7 @@ def import_users(records: list, skip_existing: bool, progfunc) -> bool:
         password = rec.get('password') or None
         display_name = rec.get('display_name')
         mail = rec.get('mail')
+        phone_extension = rec.get('phone_extension')
         no_password_expiration = rec.get('no_password_expiration')
         if user in adb:
             if skip_existing:
@@ -125,6 +130,10 @@ def import_users(records: list, skip_existing: bool, progfunc) -> bool:
                 alt_cmd += ['-m', ''] # delete mail attribute
             elif mail:
                 alt_cmd += ['-m', mail] # replace value
+            if phone_extension == "" and adb[user][ACPHONE]:
+                alt_cmd += ['-t', ''] # delete phone extension attribute
+            elif phone_extension:
+                alt_cmd += ['-t', phone_extension] # replace value
             if no_password_expiration is not None:
                 alt_cmd += ['-n'] if no_password_expiration else ['-r']
             alt_cmd.append(user)
@@ -148,6 +157,8 @@ def import_users(records: list, skip_existing: bool, progfunc) -> bool:
                 add_cmd += ['-d', user.title()]
             if mail:
                 add_cmd += ['-m', mail]
+            if phone_extension:
+                add_cmd += ['-t', phone_extension]
             if no_password_expiration:
                 add_cmd += ['-n']
             add_cmd.append(user)
@@ -166,7 +177,7 @@ def import_users(records: list, skip_existing: bool, progfunc) -> bool:
     return errors == 0
 
 def _get_accounts() -> dict:
-    """Returns users and groups. Each dict value is a list of 10 elements.
+    """Returns users and groups. Each dict value is a list of 11 elements.
     """
     def v(line):
         a, v = line.split(": ", 1)
@@ -178,7 +189,7 @@ def _get_accounts() -> dict:
         return v
 
     def _make_record():
-        record = list((None,)*10)
+        record = list((None,)*11)
         record[ACGROUPS] = []
         record[ACMEMBERS] = []
         record[ACTYPE] = 'U'
@@ -200,6 +211,7 @@ def _get_accounts() -> dict:
             'pwdPolicySubentry',
             'objectClass',
             'mail',
+            'telephoneNumber',
             'displayName',
         ], text=True, stdout=subprocess.PIPE) as proc_ldapsearch:
             record = _make_record()
@@ -239,6 +251,8 @@ def _get_accounts() -> dict:
                     record[ACDISPLAY] = v(ldifline)
                 elif ldifline.startswith("mail:"):
                     record[ACMAIL] = v(ldifline)
+                elif ldifline.startswith("telephoneNumber:"):
+                    record[ACPHONE] = v(ldifline)
                 elif ldifline.startswith("pwdChangedTime:"):
                     try:
                         record[ACPWDLASTSET] = v(ldifline)

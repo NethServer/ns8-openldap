@@ -13,7 +13,8 @@
             "groups": [
                 "developers"
             ],
-            "mail": "alice@nethserver.org"
+            "mail": "alice@nethserver.org",
+            "phone_extension": "123"
         }
     ],
     "required": [
@@ -71,6 +72,12 @@
                     "maxLength": 0
                 }
             ]
+        },
+        "phone_extension": {
+            "title": "Phone extension",
+            "type": "string",
+            "maxLength": 64,
+            "pattern": "^[A-Za-z0-9 '()+,.=/:?-]*$"
         }
     },
     "$defs": {}

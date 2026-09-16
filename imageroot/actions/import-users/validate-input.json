@@ -17,6 +17,7 @@
                             "developers"
                         ],
                         "mail": "alice@nethserver.org",
+                        "phone_extension": "123",
                         "must_change_password": false,
                         "no_password_expiration": false
                     },
@@ -111,6 +112,11 @@
                             "maxLength": 0
                         }
                     ]
+                },
+                "phone_extension": {
+                    "type": "string",
+                    "maxLength": 64,
+                    "pattern": "^[A-Za-z0-9 '()+,.=/:?-]*$"
                 },
                 "must_change_password": {
                     "type": "boolean",

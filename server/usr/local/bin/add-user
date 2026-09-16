@@ -35,6 +35,7 @@ usage_error()
     printf "      -G numgid             Set the primary group number\n"
     printf "      -U numuid             Set the numeric user identifier\n"
     printf "      -m mail               Set the user email address\n"
+    printf "      -t extension          Set the user phone extension\n"
     printf "      -n                    Password never expires\n"
     exit 2
 }
@@ -43,7 +44,7 @@ ngid=1001
 maxid=$(ldapsearch -b "ou=People,${LDAP_SUFFIX}" "(uid=*)" uidNumber | awk  '$0 ~ /^uidNumber:/ {print $2}' | sort -n | tail -n 1)
 nuid=$(( maxid + 1 ))
 
-while getopts "g:d:p:m:G:U:hn" optname ; do
+while getopts "g:d:p:m:t:G:U:hn" optname ; do
     case ${optname} in
         g)  gflag=1 ; groups="${OPTARG}" ;;
         G)  ngid="${OPTARG}" ;;
@@ -51,6 +52,7 @@ while getopts "g:d:p:m:G:U:hn" optname ; do
         d)  dflag=1 ; display_name="${OPTARG}" ;;
         p)  pflag=1 ; password="${OPTARG}" ;;
         m)  mflag=1 ; mail="${OPTARG}" ;;
+        t)  tflag=1 ; phone_extension="${OPTARG}" ;;
         n)  nflag=1 ;;
         h)  usage_error ;;
         *)  usage_error ;;
@@ -105,6 +107,11 @@ fi
     # Add mail attribute
     if [ -n "${mail}" ]; then
         printf 'mail: %s\n' "${mail}"
+    fi
+
+    # Add phone extension attribute
+    if [ -n "${phone_extension}" ]; then
+        printf 'telephoneNumber: %s\n' "${phone_extension}"
     fi
 
     # Add group membership attributes to existing groups

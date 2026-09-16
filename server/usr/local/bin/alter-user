@@ -36,17 +36,19 @@ usage_error()
     printf "      -l                    Lock the user\n"
     printf "      -u                    Unlock the user\n"
     printf "      -m mail               Set the user email address\n"
+    printf "      -t extension          Set the user phone extension\n"
     printf "      -n                    Enable password-never-expires policy\n"
     printf "      -r                    Remove password-never-expires policy\n"
     exit 2
 }
 
-while getopts "g:d:p:m:hluenr" optname ; do
+while getopts "g:d:p:m:t:hluenr" optname ; do
     case ${optname} in
         g)  gflag=1 ; groups="${OPTARG}" ;;
         d)  dflag=1 ; display_name="${OPTARG}" ;;
         p)  pflag=1 ; password="${OPTARG}" ;;
         m)  mflag=1 ; mail="${OPTARG}" ;;
+        t)  tflag=1 ; phone_extension="${OPTARG}" ;;
         l)  lflag=1 ;;
         u)  uflag=1 ;;
         e)  eflag=1 ;;
@@ -172,6 +174,22 @@ fi
             printf 'changetype: modify\n'
             printf 'replace: mail\n'
             printf 'mail: %s\n' "${mail}"
+        fi
+    fi
+
+    # Change phone extension attribute
+    if [ "${tflag}" = 1 ]; then
+        if [ -z "${phone_extension}" ]; then
+            printf '\n' # do not conflict with previous ldap commands
+            printf 'dn: uid=%s,ou=People,%s\n' "${user}" "${LDAP_SUFFIX:?}"
+            printf 'changetype: modify\n'
+            printf 'delete: telephoneNumber\n'
+        else
+            printf '\n' # do not conflict with previous ldap commands
+            printf 'dn: uid=%s,ou=People,%s\n' "${user}" "${LDAP_SUFFIX:?}"
+            printf 'changetype: modify\n'
+            printf 'replace: telephoneNumber\n'
+            printf 'telephoneNumber: %s\n' "${phone_extension}"
         fi
     fi
 

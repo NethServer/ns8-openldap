@@ -21,7 +21,7 @@ buildah add "${container}" ns8-user-manager-${user_manager_version}.tar.gz /imag
 
 buildah add "${container}" ui /ui
 buildah config --entrypoint=/ \
-    --label='org.nethserver.authorizations=ldapproxy@node:accountprovider cluster:accountprovider traefik@node:routeadm' \
+    --label='org.nethserver.authorizations=cluster:accountprovider traefik@node:routeadm' \
     --label="org.nethserver.tcp-ports-demand=2" \
     --label="org.nethserver.rootfull=0" \
     --label="org.nethserver.images=${repobase}/openldap-server:${IMAGETAG:-latest}" \
